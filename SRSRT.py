@@ -1,6 +1,6 @@
-import signal
 import sys
 import os
+from SRSRTModel import SRSRTModel
 
 class SRSRT:
     def __init__(self):
@@ -38,14 +38,11 @@ class SRSRT:
         pass
 
     def train(self, model_name, training_path):
-        stop_training = False
-        def signal_handler(_, __):
-            print("Will pause training when ready")
-            stop_training = True
-        signal.signal(signal.SIGINT, signal_handler)
-
-        while not stop_training:
-            print("train")
+        model_path = f"{training_path}/{model_name}_model"
+        self.__model = SRSRTModel()
+        self.__model.load_model(model_path)
+        self.__model.train()
+        self.__model.save_model(model_path)
         
     def evaluate(self, model_name, evaluation_path):
         pass
