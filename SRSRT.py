@@ -38,15 +38,16 @@ class SRSRT:
         pass
 
     def train(self, model_name, training_path):
-        model_path = f"{training_path}/{model_name}_model"
+        model_path = f"models/{model_name}_model"
         self.__model = SRSRTModel()
         self.__model.load_model(model_path)
-        self.__model.train()
+        self.__model.train(training_path)
         self.__model.save_model(model_path)
         
     def evaluate(self, model_name, evaluation_path):
-        model_path = f"{evaluation_path}/{model_name}_model"
+        model_path = f"models/{model_name}_model"
         self.__model.load_model(model_path)
+        self.__model.evaluate(evaluation_path)
 
 if __name__ == "__main__":
     program = SRSRT()

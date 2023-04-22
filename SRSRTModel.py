@@ -2,11 +2,15 @@ import signal
 import threading
 import torch
 import torch.nn as nn
+import os
 
 # define the model architecture
 class SRSRTModel(nn.Module):
     def __init__(self):
         super(SRSRTModel, self).__init__()
+
+        # initialisations
+        self.__stop_training = False
 
         # define the layers
         self.__input_size = 10
@@ -21,12 +25,16 @@ class SRSRTModel(nn.Module):
         return x
         
     def load_model(self, path):
-        self.load_state_dict(torch.load(f"{path}.pth"))
+        if os.path.exists(f"{path}.pth"):
+            self.load_state_dict(torch.load(f"{path}.pth"))
+        else:
+            print(f"{path}.pth doesn't exist.")
 
     def save_model(self, path):
+        os.makedirs("models")
         torch.save(self.state_dict(), f"{path}.pth")
 
-    def train(self):
+    def train(self, training_path):
         def signal_handler():
             print("Stopping training. Please wait...")
             self.__stop_training = True
@@ -39,7 +47,7 @@ class SRSRTModel(nn.Module):
         while not self.__stop_training:
             print("train")
     
-    def evaluate(self):
+    def evaluate(self, evaluation_path):
         # create a sample input
         x = torch.randn(1, self.__input_size)
 
