@@ -21,10 +21,10 @@ class SRSRTModel(nn.Module):
         return x
         
     def load_model(self, path):
-        pass
+        self.load_state_dict(torch.load(f"{path}.pth"))
 
     def save_model(self, path):
-        pass
+        torch.save(self.state_dict(), f"{path}.pth")
 
     def train(self):
         def signal_handler():

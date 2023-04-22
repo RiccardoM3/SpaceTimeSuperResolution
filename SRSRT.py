@@ -45,7 +45,8 @@ class SRSRT:
         self.__model.save_model(model_path)
         
     def evaluate(self, model_name, evaluation_path):
-        pass
+        model_path = f"{evaluation_path}/{model_name}_model"
+        self.__model.load_model(model_path)
 
 if __name__ == "__main__":
     program = SRSRT()
