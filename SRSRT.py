@@ -39,7 +39,7 @@ class SRSRT:
 
     def train(self, model_name, training_path):
         model_path = f"models/{model_name}_model"
-        self.__model = SRSRTModel()
+        self.__model = SRSRTModel().to('cuda')
         self.__model.load_model(model_path)
         self.__model.train(training_path)
         self.__model.save_model(model_path)
