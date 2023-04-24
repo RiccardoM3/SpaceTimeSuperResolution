@@ -1,6 +1,7 @@
 import sys
 import os
 from SRSRTModel import SRSRTModel
+from Trainer import Trainer
 
 class SRSRT:
     def __init__(self):
@@ -40,8 +41,10 @@ class SRSRT:
     def train(self, model_name, training_path):
         model_path = f"models/{model_name}_model"
         self.__model = SRSRTModel().to('cuda')
+        trainer = Trainer(self.__model, training_path)
+
         self.__model.load_model(model_path)
-        self.__model.train(training_path)
+        trainer.train()
         self.__model.save_model(model_path)
         
     def evaluate(self, model_name, evaluation_path):
