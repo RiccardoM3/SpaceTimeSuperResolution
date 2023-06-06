@@ -22,7 +22,7 @@ class SRSRT:
                 self.prepare_data()
                 return
         elif sys.argv[1] == "train":
-            if len(sys.argv) == 4 and os.path.isdir(sys.argv[3]):
+            if len(sys.argv) == 4 and os.path.isfile(sys.argv[3]):
                 self.train(sys.argv[2], sys.argv[3])
                 return
         elif sys.argv[1] == "evaluate":

@@ -1,7 +1,6 @@
 import os
 import cv2
 import random
-import pickle
 import numpy as np
 import torch
 import torch.utils.data
@@ -14,8 +13,8 @@ def create_dataloader(dataset, batch_size):
                                         num_workers=NUM_DATALOADER_WORKERS, drop_last=True,
                                         pin_memory=False)
     
-def create_dataset(train_path):
-    return Vimeo90KDataset(train_path)
+def create_dataset(settings, train_list_path):
+    return Vimeo90KDataset(settings, train_list_path)
 
 def save_downscaled_image(image_path, downscaled_image_path, scale):
     img = cv2.imread(image_path)
@@ -56,26 +55,25 @@ class Vimeo90KDataset(Dataset):
     key example: train/00001/0001/im1.png
     '''
 
-    def __init__(self, train_path):
+    def __init__(self, settings, train_list_path):
         super(Vimeo90KDataset, self).__init__()
-        self.scale = 4
-        self.num_frames = 7
-        self.HR_crop_size = 256
-        self.LR_crop_size = self.HR_crop_size // self.scale
+        self.settings = settings
         self.HR_image_shape = (3, 256, 448)
-        self.LR_image_shape = (3, self.HR_image_shape[1] // self.scale, self.HR_image_shape[2] // self.scale)
+        self.LR_image_shape = (3, self.HR_image_shape[1] // self.settings["scale"], self.HR_image_shape[2] // self.settings["scale"])
 
-        self.LR_num_frames = 1 + self.num_frames // 2
+        self.LR_num_frames = 1 + self.settings["num_frames"] // 2
         assert self.LR_num_frames > 1, 'Error: Not enough LR frames to interpolate'
 
         self.LR_index_list = [i * 2 for i in range(self.LR_num_frames)]
 
-        self.HR_root = os.path.join(train_path, "sequences", "train")
-        self.LR_root = os.path.join(train_path, "sequences_LR", "train")
+        self.HR_root = os.path.join("vimeo_septuplet", "sequences")
+        self.LR_root = os.path.join("vimeo_septuplet", f"sequences_scale_{self.settings['scale']}")
 
         # Load image keys
-        cache_keys = 'Vimeo_keys.pkl'
-        self.HR_paths = list(pickle.load(open('{}'.format(cache_keys), 'rb'))['keys'])
+        self.HR_paths = []
+        with open(train_list_path) as f:
+            for line in f:
+                self.HR_paths.append(line.strip())
 
         assert self.HR_paths, 'Error: HR path is empty.'
 
@@ -100,25 +98,23 @@ class Vimeo90KDataset(Dataset):
     def augment(self, img_list, hflip=True, rot=True):
         hflip = hflip and random.random() < 0.5
         vflip = rot and random.random() < 0.5
-        rot90 = rot and random.random() < 0.5
 
         def _augment(img):
             if hflip:
                 img = img[:, ::-1, :]
             if vflip:
                 img = img[::-1, :, :]
-            if rot90:
-                img = img.transpose(1, 0, 2)
+            
             return img
 
         return [_augment(img) for img in img_list]
 
     def __getitem__(self, index):
         key = self.HR_paths[index]
-        name_a, name_b = key.split('_')
+        name_a, name_b = key.split('/')
 
         # Get frame list
-        HR_frames_list = list(range(1, self.num_frames + 1))
+        HR_frames_list = list(range(1, self.settings["num_frames"] + 1))
         if random.random() < 0.5:
             HR_frames_list.reverse()
         LR_frames_list = [HR_frames_list[i] for i in self.LR_index_list]
@@ -135,19 +131,11 @@ class Vimeo90KDataset(Dataset):
             img_LR = self.read_img(os.path.join(self.LR_root, name_a, name_b, 'im{}.png'.format(v)))
             img_LR_list.append(img_LR)
 
-        _, H, W = self.LR_image_shape
-        # Randomly crop
-        rnd_h = random.randint(0, max(0, H - self.LR_crop_size))
-        rnd_w = random.randint(0, max(0, W - self.LR_crop_size))
-        img_LR_list = [v[rnd_h:rnd_h + self.LR_crop_size, rnd_w:rnd_w + self.LR_crop_size, :] for v in img_LR_list]
-        rnd_h_HR, rnd_w_HR = int(rnd_h * self.scale), int(rnd_w * self.scale)
-        img_HR_list = [v[rnd_h_HR:rnd_h_HR + self.HR_crop_size, rnd_w_HR:rnd_w_HR + self.HR_crop_size, :] for v in img_HR_list]
-
         # Augmentation - flip, rotate
         img_list = img_LR_list + img_HR_list
         img_list = self.augment(img_list, True, True)
-        img_LR_list = img_list[0:-self.num_frames]
-        img_HR_list = img_list[-self.num_frames:]
+        img_LR_list = img_list[0:-self.settings["num_frames"]]
+        img_HR_list = img_list[-self.settings["num_frames"]:]
 
         # Stack LR images to NHWC, N is the frame number
         img_LRs = np.stack(img_LR_list, axis=0)
