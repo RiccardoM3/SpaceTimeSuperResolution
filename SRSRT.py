@@ -2,6 +2,7 @@ import sys
 import os
 from SRSRTModel import SRSRTModel
 from Trainer import Trainer
+from Vimeo90K import Vimeo90K
 
 class SRSRT:
     def __init__(self):
@@ -13,8 +14,10 @@ class SRSRT:
             sys.exit(0)
 
         if sys.argv[1] == "prepare_data":
-            if len(sys.argv) == 3 and os.path.isdir(sys.argv[2]):
-                self.prepare_data(sys.argv[2])
+            if len(sys.argv) == 2:
+                if not os.path.isdir('./vimeo_septuplet/sequences'):
+                    print("'./vimeo_septuplet/sequences' wasn't found. Please follow the guide in the README")
+                self.prepare_data()
                 return
         elif sys.argv[1] == "train":
             if len(sys.argv) == 4 and os.path.isdir(sys.argv[3]):
@@ -25,14 +28,11 @@ class SRSRT:
                 self.evaluate(sys.argv[2], sys.argv[3])
                 return
 
-        print("Please provide correct command line arguments and ensure your path is valid")
+        print("Please provide correct command line arguments")
         sys.exit(0)
         
-    def prepare_training(self, training_path):
-        pass
-
-    def prepare_evaluation(self, evaluation_path):
-        pass
+    def prepare_data(self):
+        Vimeo90K().prepare_data()
 
     def train(self, model_name, training_path):
         model_path = f"models/{model_name}_model"
