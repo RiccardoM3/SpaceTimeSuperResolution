@@ -17,6 +17,7 @@ class SRSRT:
             if len(sys.argv) == 2:
                 if not os.path.isdir('./vimeo_septuplet/sequences'):
                     print("'./vimeo_septuplet/sequences' wasn't found. Please follow the guide in the README")
+                    return
                 self.prepare_data()
                 return
         elif sys.argv[1] == "train":
