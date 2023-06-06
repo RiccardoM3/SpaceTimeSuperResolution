@@ -1,6 +1,10 @@
 # SRSRT: Spacetime Realtime Super Resolution Transformer
 - Introduces a u-net style transformer in both the spacial and temporal domain
-- Employs a modification of the swin transformer
+- Employs a modification of swin transformer blocks
+    - check if its in the ablation study
+- list of papers and things that i can run inference on
+- size of swin transformer blocks
+- masks with non transformers
 
 # Running SRSRT:
 ## Data preparation

@@ -12,13 +12,9 @@ class SRSRT:
             print("Please provide command line arguments")
             sys.exit(0)
 
-        if sys.argv[1] == "prepare_training":
+        if sys.argv[1] == "prepare_data":
             if len(sys.argv) == 3 and os.path.isdir(sys.argv[2]):
-                self.prepare_training(sys.argv[2])
-                return
-        elif sys.argv[1] == "prepare_evaluation":
-            if len(sys.argv) == 3 and os.path.isdir(sys.argv[2]):
-                self.prepare_evaluation(sys.argv[2])
+                self.prepare_data(sys.argv[2])
                 return
         elif sys.argv[1] == "train":
             if len(sys.argv) == 4 and os.path.isdir(sys.argv[3]):

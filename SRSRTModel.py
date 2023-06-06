@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os
 import sys
+from Layers import (make_layer, ResidualBlock_noBN, EncoderLayer, DecoderLayer, 
+                     InputProj, Downsample, Upsample)
 
 # define the model architecture
 class SRSRTModel(nn.Module):
@@ -19,7 +21,9 @@ class SRSRTModel(nn.Module):
         # define the layers
         # self.__input_size = 1000
         # self.__hidden_size = 800
-        self.hidden = nn.Linear(64, 256)
+        # self.hidden = nn.Linear(64, 256)
+        self.upsample1 = Upsample(3, 3)
+        self.upsample2 = Upsample(3, 3)
 
     def forward(self, x):
         B, D, C, H, W = x.size()  # D input video frames
@@ -30,10 +34,13 @@ class SRSRTModel(nn.Module):
         # upsample_x = F.interpolate(x, (2*D-1, H*4, W*4), mode='trilinear', align_corners=False)
         # x = x.permute(0, 2, 1, 3, 4)
 
-        x = F.relu(self.hidden(x))
+        # x = F.relu(self.hidden(x))
 
         # merge x (trained residual) with trillinear interpolation (upsample_x)
         # x = upsample_x + x
+
+        x = self.upsample1(x)
+        x = self.upsample2(x)
 
         return x
         
