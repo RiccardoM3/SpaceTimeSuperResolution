@@ -2,17 +2,20 @@ import signal
 import threading
 import torch
 import torch.nn as nn
-from DataLoader import create_dataloader, create_dataset
 from Loss import CharbonnierLoss
+import Vimeo90K
 
 class Trainer:
-    def __init__(self, model, train_path):
+    def __init__(self, model, settings, train_path):
         self.model = model
+        self.settings = settings
         self.train_path = train_path
 
         self.__stop_training = False
         self.__epoch = 0
         self.__num_epochs = 1000
+
+        
 
     def train(self):
         self.model.train()
@@ -23,8 +26,8 @@ class Trainer:
         # run the signal handler on a new thread so the print statements dont conflict with ones which are already running while interrupted
         signal.signal(signal.SIGINT, lambda _, __: threading.Timer(0.01, signal_handler).start())
 
-        train_set = create_dataset(self.train_path)
-        train_loader = create_dataloader(train_set)
+        train_set = Vimeo90K.create_dataset(self.train_path)
+        train_loader = Vimeo90K.create_dataloader(train_set, self.settings["batch_size"])
 
         loss_function = CharbonnierLoss().to('cuda') # define the loss function # TODO
         optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01) # define the optimizer #TODO

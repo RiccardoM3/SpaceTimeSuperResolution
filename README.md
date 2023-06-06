@@ -13,7 +13,6 @@ First install the required python packages
 ## Data Preparation
 Data preparation must be run before training or evaluation is run:
 ``python SRSRT.py prepare_data``
-This will rename the `vimeo_septuplet/sequences` directory to `HR_sequences`, and generate `LR_sequences` with half the resolution
 
 ## Training
 ``python SRSRT.py train <model_name> <training_set_path>`` 
