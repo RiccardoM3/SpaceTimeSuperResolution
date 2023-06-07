@@ -37,18 +37,18 @@ class SRSRT:
         Vimeo90K.prepare_data(self.settings["scale"])
 
     def train(self, model_name, training_path):
-        model_path = f"models/{model_name}_model"
         model = SRSRTModel().to('cuda')
-        trainer = Trainer(model, self.settings, training_path)
+        model.load_model(model_name)
 
-        model.load_model(model_path)
+        trainer = Trainer(model, model_name, self.settings, training_path)
+
+        trainer.load_training_state()
         trainer.train()
-        model.save_model(model_path)
+        trainer.save_training_state()
         
     def evaluate(self, model_name, evaluation_path):
-        model_path = f"models/{model_name}_model"
         model = SRSRTModel().to('cuda')
-        model.load_model(model_path)
+        model.load_model(model_name)
         model.evaluate(evaluation_path)
 
 if __name__ == "__main__":

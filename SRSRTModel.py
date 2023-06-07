@@ -25,7 +25,7 @@ class SRSRTModel(nn.Module):
     def forward(self, x):
         B, D, C, H, W = x.size()  # D input video frames
         
-        print(B, D, C, H, W)
+        # print(B, D, C, H, W)
 
         # x = x.permute(0, 2, 1, 3, 4)
         # upsample_x = F.interpolate(x, (2*D-1, H*4, W*4), mode='trilinear', align_corners=False)
@@ -45,21 +45,25 @@ class SRSRTModel(nn.Module):
         duplicated_frames = x[:, :3]
         x = torch.cat((x, duplicated_frames), dim=1)
 
-        print(x.size())
-
         return x
         
-    def load_model(self, path):
-        if os.path.exists(f"{path}.pth"):
-            self.load_state_dict(torch.load(f"{path}.pth"))
-        else:
-            print(f"{path}.pth doesn't exist.")
+    def load_model(self, model_name):
+        model_path = f"models/{model_name}_model"
 
-    def save_model(self, path):
+        if os.path.exists(f"{model_path}.pth"):
+            self.load_state_dict(torch.load(f"{model_path}.pth"))
+            print("Loaded model")
+        else:
+            print(f"{model_path}.pth doesn't exist.")
+
+    def save_model(self, model_name):
         if not os.path.exists("models"):
             os.makedirs("models")
 
-        torch.save(self.state_dict(), f"{path}.pth")
+        model_path = f"models/{model_name}_model"
+
+        torch.save(self.state_dict(), f"{model_path}.pth")
+        print("Saved model")
     
     def evaluate(self, evaluation_path):
         # create a sample input

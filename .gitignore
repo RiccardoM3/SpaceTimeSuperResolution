@@ -2,6 +2,7 @@
 vimeo_septuplet
 vimeo_septuplet_backup
 models
+training_states
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
