@@ -34,26 +34,23 @@ class Trainer:
 
             for _, train_data in enumerate(train_loader):
 
-                inputs = train_data["LRs"].to('cuda')
-                targets = train_data['HRs'].to('cuda')
-
-                cv2.imshow("window", inputs[0][0].permute(1, 2, 0).cpu().numpy())
-                cv2.waitKey(0)
-                cv2.imshow("window", targets[0][0].permute(1, 2, 0).cpu().numpy())
-                cv2.waitKey(0)
-
-                print(inputs.size())
-                print(targets.size())
+                inputs = train_data["LRs"].to('cuda')   #[5, 4, 3, 64, 112]
+                targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 448]
                 
+                # cv2.imshow("window", inputs[0][0].permute(1, 2, 0).cpu().numpy())
+                # cv2.waitKey(0)
+                # cv2.imshow("window", targets[0][0].permute(1, 2, 0).cpu().numpy())
+                # cv2.waitKey(0)
+
                 #zero the gradients
-                # optimizer.zero_grad()
-                # outputs = self.model(inputs)
+                optimizer.zero_grad()
+                outputs = self.model(inputs)
 
-                # loss = loss_function(outputs, targets)
-                # loss.backward()
-                # optimizer.step()
+                loss = loss_function(outputs, targets)
+                loss.backward()
+                optimizer.step()
                 
-                # print(f"Loss: {loss.item()}")
+                print(f"Loss: {loss.item()}")
 
         self.save_training_state()
 

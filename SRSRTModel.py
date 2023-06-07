@@ -19,9 +19,6 @@ class SRSRTModel(nn.Module):
         os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
         # define the layers
-        # self.__input_size = 1000
-        # self.__hidden_size = 800
-        # self.hidden = nn.Linear(64, 256)
         self.upsample1 = Upsample(3, 3)
         self.upsample2 = Upsample(3, 3)
 
@@ -39,8 +36,16 @@ class SRSRTModel(nn.Module):
         # merge x (trained residual) with trillinear interpolation (upsample_x)
         # x = upsample_x + x
 
+
+        # upsample twice
         x = self.upsample1(x)
         x = self.upsample2(x)
+
+        # copy some frames over
+        duplicated_frames = x[:, :3]
+        x = torch.cat((x, duplicated_frames), dim=1)
+
+        print(x.size())
 
         return x
         
