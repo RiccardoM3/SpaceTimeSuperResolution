@@ -24,20 +24,20 @@ class SRSRTModel(nn.Module):
 
     def forward(self, x):
         B, D, C, H, W = x.size()  # D input video frames
-        UD = 2*D-1 # num output video frames (upscaled)
-        UH = H*4 # output H (upscaled)
-        UW = W*4 # output W (upscaled)
+        OD = 2*D-1 # num output video frames
+        OH = H*4 # output H
+        OW = W*4 # output W
         # print(B, D, C, H, W)
 
         # Trilinear interpolation
         x = x.permute(0, 2, 1, 3, 4)
-        upsample_x = F.interpolate(x, (UD, UH, UW), mode='trilinear', align_corners=False)
+        upsample_x = F.interpolate(x, (OD, OH, OW), mode='trilinear', align_corners=False)
         x = x.permute(0, 2, 1, 3, 4)
 
         # Apply the reconstruction layer to the trilinearly interpolated output
-        upsample_x = upsample_x.view(B * UD, C, UH, UW) # Reshape the input tensor to merge batches with the sequence of images
+        upsample_x = upsample_x.view(B * OD, C, OH, OW) # Reshape the input tensor to merge batches with the sequence of images
         upsample_x = self.recon_layer(upsample_x)
-        upsample_x = upsample_x.view(B, UD, C, UH, UW) # Reshape the output tensor back to its original shape
+        upsample_x = upsample_x.view(B, OD, C, OH, OW) # Reshape the output tensor back to its original shape
 
         # x = F.relu(self.hidden(x))
 
