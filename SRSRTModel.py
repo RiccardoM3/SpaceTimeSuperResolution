@@ -19,22 +19,25 @@ class SRSRTModel(nn.Module):
         os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
         # define the layers
-        C = 3
-        self.recon_layer = nn.Conv2d(C, C, kernel_size=5, stride=1, padding=2)
+        C = 3 # num of channels
+        self.recon_layer = nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x):
         B, D, C, H, W = x.size()  # D input video frames
+        UD = 2*D-1 # num output video frames (upscaled)
+        UH = H*4 # output H (upscaled)
+        UW = W*4 # output W (upscaled)
         # print(B, D, C, H, W)
 
         # Trilinear interpolation
         x = x.permute(0, 2, 1, 3, 4)
-        upsample_x = F.interpolate(x, (2*D-1, H*4, W*4), mode='trilinear', align_corners=False)
+        upsample_x = F.interpolate(x, (UD, UH, UW), mode='trilinear', align_corners=False)
         x = x.permute(0, 2, 1, 3, 4)
 
         # Apply the reconstruction layer to the trilinearly interpolated output
-        upsample_x = upsample_x.view(B*(2*D-1), C, H*4, W*4) # Reshape the input tensor to have dimensions (B * D * num_pixels, C)
-        upsample_x = self.recon_layer(upsample_x) # Apply the linear transformation to the reshaped input tensor
-        upsample_x = upsample_x.view(B, (2*D-1), C, H*4, W*4) # Reshape the output tensor back to its original shape
+        upsample_x = upsample_x.view(B * UD, C, UH, UW) # Reshape the input tensor to merge batches with the sequence of images
+        upsample_x = self.recon_layer(upsample_x)
+        upsample_x = upsample_x.view(B, UD, C, UH, UW) # Reshape the output tensor back to its original shape
 
         # x = F.relu(self.hidden(x))
 
