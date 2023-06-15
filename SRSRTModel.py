@@ -19,33 +19,29 @@ class SRSRTModel(nn.Module):
         os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
         # define the layers
-        self.upsample1 = Upsample(3, 3)
-        self.upsample2 = Upsample(3, 3)
+        C = 3
+        self.recon_layer = nn.Conv2d(C, C, kernel_size=5, stride=1, padding=2)
 
     def forward(self, x):
         B, D, C, H, W = x.size()  # D input video frames
-        
         # print(B, D, C, H, W)
 
-        # x = x.permute(0, 2, 1, 3, 4)
-        # upsample_x = F.interpolate(x, (2*D-1, H*4, W*4), mode='trilinear', align_corners=False)
-        # x = x.permute(0, 2, 1, 3, 4)
+        # Trilinear interpolation
+        x = x.permute(0, 2, 1, 3, 4)
+        upsample_x = F.interpolate(x, (2*D-1, H*4, W*4), mode='trilinear', align_corners=False)
+        x = x.permute(0, 2, 1, 3, 4)
+
+        # Apply the reconstruction layer to the trilinearly interpolated output
+        upsample_x = upsample_x.view(B*(2*D-1), C, H*4, W*4) # Reshape the input tensor to have dimensions (B * D * num_pixels, C)
+        upsample_x = self.recon_layer(upsample_x) # Apply the linear transformation to the reshaped input tensor
+        upsample_x = upsample_x.view(B, (2*D-1), C, H*4, W*4) # Reshape the output tensor back to its original shape
 
         # x = F.relu(self.hidden(x))
 
         # merge x (trained residual) with trillinear interpolation (upsample_x)
         # x = upsample_x + x
 
-
-        # upsample twice
-        x = self.upsample1(x)
-        x = self.upsample2(x)
-
-        # copy some frames over
-        duplicated_frames = x[:, :3]
-        x = torch.cat((x, duplicated_frames), dim=1)
-
-        return x
+        return upsample_x
         
     def load_model(self, model_name):
         model_path = f"models/{model_name}_model"
