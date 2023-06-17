@@ -1,5 +1,6 @@
 import os
-import cv2
+import numpy as np
+import matplotlib.pyplot as plt
 import signal
 import threading
 import torch
@@ -19,7 +20,7 @@ class Trainer:
         self.train_loader = Vimeo90K.create_dataloader(self.train_set, self.settings["batch_size"])
 
         self.loss_function = CharbonnierLoss().to('cuda')
-        self.optimiser = torch.optim.SGD(self.model.parameters(), lr=0.01)
+        # self.optimiser = torch.optim.SGD(self.model.parameters(), lr=0.01)
         self.epoch = 0
         self.iter = 0
 
@@ -39,7 +40,7 @@ class Trainer:
                 if self.iter > self.settings["max_iters_per_epoch"]:
                     break
 
-                loss = self.train_one_datapoint(train_data)
+                loss = self.train_one_batch(train_data)
                 
                 current_iter = self.iter
                 self.iter += 1
@@ -59,24 +60,44 @@ class Trainer:
         self.model.save_model(self.model_name)
         self.save_training_state()
 
-    def train_one_datapoint(self, train_data):
+    def train_one_batch(self, train_data):
         inputs = train_data["LRs"].to('cuda')   #[5, 4, 3, 64, 112]
         targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 448]
-        
-        # cv2.imshow("window", inputs[0][0].permute(1, 2, 0).cpu().numpy())
-        # cv2.waitKey(0)
-        # cv2.imshow("window", targets[0][0].permute(1, 2, 0).cpu().numpy())
-        # cv2.waitKey(0)
 
         #zero the gradients
-        self.optimiser.zero_grad()
+        # self.optimiser.zero_grad()
         outputs = self.model(inputs)
 
+        # display the first output of the batch
+        self.observe_sequence(inputs[0], outputs[0], targets[0])
+
         loss = self.loss_function(outputs, targets)
-        loss.backward()
-        self.optimiser.step()
+        # loss.backward()
+        # self.optimiser.step()
 
         return loss
+
+    def observe_sequence(self, input, output, target):
+        num_outputs = output.size()[0]
+        fig, axs = plt.subplots(3, num_outputs, figsize=(20,5), sharex=True, sharey=True)
+        fig.subplots_adjust(wspace=0, hspace=0)
+        for i in range(num_outputs):
+            
+            current_target = target[i].permute(1, 2, 0).cpu().numpy()
+            current_output = output[i].permute(1, 2, 0).cpu().detach().numpy()
+
+            if i % 2 == 0:
+                current_input = input[i//2].permute(1, 2, 0).cpu().numpy()
+                current_input = np.repeat(np.repeat(current_input, self.settings["scale"], axis=0), self.settings["scale"], axis=1)
+                axs[0][i].imshow(current_input)
+                
+            axs[0][i].axis('off')
+            axs[1][i].imshow(current_target)
+            axs[1][i].axis('off')
+            axs[2][i].imshow(current_output)
+            axs[2][i].axis('off')
+
+        plt.show()
 
     def load_training_state(self):
         training_state_path = f"training_states/{self.model_name}_state.pth"

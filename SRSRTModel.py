@@ -23,21 +23,23 @@ class SRSRTModel(nn.Module):
         self.recon_layer = nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x):
-        B, D, C, H, W = x.size()  # D input video frames
+        B, D, C, H, W = x.size()  # [5 4 3 64 112] B batch size. D num input video frames. C num colour channels.
         OD = 2*D-1 # num output video frames
         OH = H*4 # output H
         OW = W*4 # output W
-        # print(B, D, C, H, W)
+        print(B, D, C, H, W)
 
         # Trilinear interpolation
         x = x.permute(0, 2, 1, 3, 4)
         upsample_x = F.interpolate(x, (OD, OH, OW), mode='trilinear', align_corners=False)
+        upsample_x = upsample_x.permute(0, 2, 1, 3, 4)
         x = x.permute(0, 2, 1, 3, 4)
 
         # Apply the reconstruction layer to the trilinearly interpolated output
-        upsample_x = upsample_x.view(B * OD, C, OH, OW) # Reshape the input tensor to merge batches with the sequence of images
-        upsample_x = self.recon_layer(upsample_x)
-        upsample_x = upsample_x.view(B, OD, C, OH, OW) # Reshape the output tensor back to its original shape
+        # upsample_x = upsample_x.reshape(B * OD, C, OH, OW) # Reshape the input tensor to merge batches with the sequence of images
+        # print(upsample_x.size())
+        # upsample_x = self.recon_layer(upsample_x)
+        # upsample_x = upsample_x.view(B, OD, C, OH, OW) # Reshape the output tensor back to its original shape
 
         # x = F.relu(self.hidden(x))
 
