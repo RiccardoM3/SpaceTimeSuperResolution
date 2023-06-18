@@ -20,7 +20,7 @@ class Trainer:
         self.train_loader = Vimeo90K.create_dataloader(self.train_set, self.settings["batch_size"])
 
         self.loss_function = CharbonnierLoss().to('cuda')
-        # self.optimiser = torch.optim.SGD(self.model.parameters(), lr=0.01)
+        self.optimiser = torch.optim.SGD(self.model.parameters(), lr=0.01)
         self.epoch = 0
         self.iter = 0
 
@@ -65,15 +65,15 @@ class Trainer:
         targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 448]
 
         #zero the gradients
-        # self.optimiser.zero_grad()
+        self.optimiser.zero_grad()
         outputs = self.model(inputs)
 
         # display the first output of the batch
         self.observe_sequence(inputs[0], outputs[0], targets[0])
 
         loss = self.loss_function(outputs, targets)
-        # loss.backward()
-        # self.optimiser.step()
+        loss.backward()
+        self.optimiser.step()
 
         return loss
 
