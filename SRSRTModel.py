@@ -18,16 +18,117 @@ class SRSRTModel(nn.Module):
         
         os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-        # define the layers
+        # Define options
+        E = 4 # num of encoder frames
         C = 3 # num of channels
-        self.recon_layer = nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1)
+        FC = 16 # num of feature channels
+        D = 3 # num of decoder frames
+        
+        drop_rate=0.
+        attn_drop_rate=0.
+        mlp_ratio=2.
+        drop_path_rate=0.1
+        norm_layer = nn.LayerNorm
+        qkv_bias=True
+        qk_scale=None
+        window_size = (4, 4)
+
+        encoder_layer_settings = [
+            {
+                "heads": 2,
+                "windows": 8
+            }, {
+                "heads": 4,
+                "windows": 8
+            }, {
+                "heads": 8,
+                "windows": 8
+            }, {
+                "heads": 16,
+                "windows": 8
+            }
+        ]
+        decoder_layer_settings = [
+            {
+                "heads": 16,
+                "windows": 8
+            }, {
+                "heads": 8,
+                "windows": 8
+            }, {
+                "heads": 4,
+                "windows": 8
+            }, {
+                "heads": 2,
+                "windows": 8
+            }
+        ]
+
+        # Stochastic depth
+        num_windows_per_encoder_layer = [sum(setting["windows"] for setting in encoder_layer_settings)]
+        num_windows_per_decoder_layer = [sum(setting["windows"] for setting in decoder_layer_settings)]
+        enc_dpr= [x.item() for x in torch.linspace(0, drop_path_rate, sum(num_windows_per_encoder_layer))] 
+        dec_dpr = enc_dpr[::-1]
+
+        # Define Layers
+
+        # Feature Extraction
+        self.feature_extraction = nn.Conv2d(C, FC, kernel_size=3, stride=1, padding=1)
+
+        # Encoder
+        self.encoder_layers = nn.ModuleList()
+        self.downsample_layers = nn.ModuleList()
+        for i in range(len(encoder_layer_settings)):
+            encoder_layer_setting = encoder_layer_settings[i]
+            encoder_layer = EncoderLayer(
+                    dim=FC, 
+                    depth=encoder_layer_setting["windows"], 
+                    num_heads=encoder_layer_setting["heads"], 
+                    num_frames=E, window_size=window_size, mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias, qk_scale=qk_scale, drop=drop_rate, 
+                    attn_drop=attn_drop_rate,
+                    # drop_path=enc_dpr[sum(num_windows_per_encoder_layer[:i]):sum(num_windows_per_encoder_layer[:i + 1])],
+                    norm_layer=norm_layer
+            )
+            self.encoder_layers.append(encoder_layer)
+            if i != len(encoder_layer_settings) - 1:
+                downsample = Downsample(FC, FC)
+                self.downsample_layers.append(downsample)
+
+
+        # Decoder
+        self.decoder_layers = nn.ModuleList()
+        self.upsample_layers = nn.ModuleList()
+        for i in range(len(decoder_layer_settings)):
+            decoder_layer_setting = decoder_layer_settings[i]
+            decoder_layer = DecoderLayer(
+                    dim=FC, 
+                    depth=decoder_layer_setting["windows"], 
+                    num_heads=decoder_layer_setting["heads"], 
+                    num_frames=D, window_size=window_size, mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias, qk_scale=qk_scale, drop=drop_rate, 
+                    attn_drop=attn_drop_rate,
+                    # drop_path=dec_dpr[sum(num_windows_per_decoder_layer[:i]):sum(num_windows_per_decoder_layer[:i + 1])],
+                    norm_layer=norm_layer
+            )
+            self.decoder_layers.append(decoder_layer)
+            if i != len(decoder_layer_settings) - 1:
+                upsample = Upsample(FC, FC)
+                self.upsample_layers.append(upsample)
+
+        # Temporary reconstruction upsampling
+        self.u1 = Upsample(FC, FC)
+        self.u2 = Upsample(FC, FC)
+
 
     def forward(self, x):
-        B, D, C, H, W = x.size()  # [5 4 3 64 112] B batch size. D num input video frames. C num colour channels.
-        OD = 2*D-1 # num output video frames
+        B, N, C, H, W = x.size()  # [5 4 3 64 112] B batch size. D num input video frames. C num colour channels.
+        D = 3
+        FC = 16
+        OD = 2*N-1 # num output video frames
         OH = H*4 # output H
         OW = W*4 # output W
-        print(B, D, C, H, W)
+        # print(B, D, C, H, W)
 
         # Trilinear interpolation
         x = x.permute(0, 2, 1, 3, 4)
@@ -35,18 +136,35 @@ class SRSRTModel(nn.Module):
         upsample_x = upsample_x.permute(0, 2, 1, 3, 4)
         x = x.permute(0, 2, 1, 3, 4)
 
-        # Apply the reconstruction layer to the trilinearly interpolated output
-        # upsample_x = upsample_x.reshape(B * OD, C, OH, OW) # Reshape the input tensor to merge batches with the sequence of images
-        # print(upsample_x.size())
-        # upsample_x = self.recon_layer(upsample_x)
-        # upsample_x = upsample_x.view(B, OD, C, OH, OW) # Reshape the output tensor back to its original shape
+        # Feature Extraction
+        x = x.view(B * N, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
+        x = self.feature_extraction(x)
+        x = x.view(B, N, FC, H, W) # Reshape the output tensor back to its original shape
 
-        # x = F.relu(self.hidden(x))
+        # Obtain encoder features
+        encoder_features = []
+        for i in range(len(self.encoder_layers)):
+            x = self.encoder_layers[i](x)
+            encoder_features.append(x)
+            if i != len(self.encoder_layers) - 1:
+                x = self.downsample_layers[i](x)
 
-        # merge x (trained residual) with trillinear interpolation (upsample_x)
-        # x = upsample_x + x
+        # TODO: use diffblock instead
+        y = torch.zeros((B, D, FC, H, W), device=x.device)
 
-        return upsample_x
+        # Get decoder output
+        for i in range(len(self.decoder_layers)):
+            y = self.decoder_layers[i](y, encoder_features[-i - 1])
+            if i != len(self.decoder_layers) - 1:
+                y = self.upsample_layers[i](y)
+
+        # Temporary reconstruction upsampling
+        y = self.u1(y)
+        y = self.u2(y)
+
+        # TODO: y has dim D = 3, upsame_x has dim D = 7
+
+        return y + upsample_x
         
     def load_model(self, model_name):
         model_path = f"models/{model_name}_model"
