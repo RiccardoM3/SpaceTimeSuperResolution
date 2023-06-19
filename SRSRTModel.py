@@ -43,8 +43,7 @@ class SRSRTModel(nn.Module):
             }, {
                 "heads": 8,
                 "windows": 8
-            }, 
-            {
+            }, {
                 "heads": 16,
                 "windows": 8
             }
@@ -59,8 +58,7 @@ class SRSRTModel(nn.Module):
             }, {
                 "heads": 4,
                 "windows": 8
-            }, 
-            {
+            }, {
                 "heads": 2,
                 "windows": 8
             }
@@ -152,10 +150,12 @@ class SRSRTModel(nn.Module):
                 x = self.downsample_layers[i](x)
 
         # TODO: use diffblock instead
-        y = torch.zeros((B, D, FC, H, W), device=x.device)
+        y = torch.zeros((B, D, FC, H//8, W//8), device=x.device)
 
         # Get decoder output
         for i in range(len(self.decoder_layers)):
+            # print(y.size())                           [5, 3, 16, 8, 12]
+            # print(encoder_features[-i - 1].size())    [5, 4, 16, 8, 12]
             y = self.decoder_layers[i](y, encoder_features[-i - 1])
             if i != len(self.decoder_layers) - 1:
                 y = self.upsample_layers[i](y)
