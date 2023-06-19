@@ -43,7 +43,8 @@ class SRSRTModel(nn.Module):
             }, {
                 "heads": 8,
                 "windows": 8
-            }, {
+            }, 
+            {
                 "heads": 16,
                 "windows": 8
             }
@@ -58,7 +59,8 @@ class SRSRTModel(nn.Module):
             }, {
                 "heads": 4,
                 "windows": 8
-            }, {
+            }, 
+            {
                 "heads": 2,
                 "windows": 8
             }
@@ -87,7 +89,7 @@ class SRSRTModel(nn.Module):
                     num_frames=E, window_size=window_size, mlp_ratio=mlp_ratio,
                     qkv_bias=qkv_bias, qk_scale=qk_scale, drop=drop_rate, 
                     attn_drop=attn_drop_rate,
-                    # drop_path=enc_dpr[sum(num_windows_per_encoder_layer[:i]):sum(num_windows_per_encoder_layer[:i + 1])],
+                    # drop_path=enc_dpr[sum(num_windows_per_encoder_layer[:i]):sum(num_windows_per_encoder_layer[:i + 1])], #TODO
                     norm_layer=norm_layer
             )
             self.encoder_layers.append(encoder_layer)
@@ -108,7 +110,7 @@ class SRSRTModel(nn.Module):
                     num_frames=D, window_size=window_size, mlp_ratio=mlp_ratio,
                     qkv_bias=qkv_bias, qk_scale=qk_scale, drop=drop_rate, 
                     attn_drop=attn_drop_rate,
-                    # drop_path=dec_dpr[sum(num_windows_per_decoder_layer[:i]):sum(num_windows_per_decoder_layer[:i + 1])],
+                    # drop_path=dec_dpr[sum(num_windows_per_decoder_layer[:i]):sum(num_windows_per_decoder_layer[:i + 1])], #TODO
                     norm_layer=norm_layer
             )
             self.decoder_layers.append(decoder_layer)
@@ -122,7 +124,7 @@ class SRSRTModel(nn.Module):
 
 
     def forward(self, x):
-        B, N, C, H, W = x.size()  # [5 4 3 64 112] B batch size. D num input video frames. C num colour channels.
+        B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num input video frames. C num colour channels.
         D = 3
         FC = 16
         OD = 2*N-1 # num output video frames

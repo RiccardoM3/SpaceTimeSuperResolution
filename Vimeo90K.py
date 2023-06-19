@@ -60,6 +60,8 @@ class Vimeo90KDataset(Dataset):
         self.settings = settings
         self.HR_image_shape = (3, 256, 448)
         self.LR_image_shape = (3, self.HR_image_shape[1] // self.settings["scale"], self.HR_image_shape[2] // self.settings["scale"])
+        self.HR_crop_image_shape = (3, 256, 384) # both dims must be divisible by 128. This is due to input scale being 4x smaller, 3x convolution layers, and 4-pixel sliding window, meaning X/4/2/2/2/4 must be a whole number
+        self.LR_crop_image_shape = (3, self.HR_crop_image_shape[1] // self.settings["scale"], self.HR_crop_image_shape[2] // self.settings["scale"])
 
         self.LR_num_frames = 1 + self.settings["num_frames"] // 2
         assert self.LR_num_frames > 1, 'Error: Not enough LR frames to interpolate'
@@ -130,6 +132,15 @@ class Vimeo90KDataset(Dataset):
         for v in LR_frames_list:
             img_LR = self.read_img(os.path.join(self.LR_root, name_a, name_b, 'im{}.png'.format(v)))
             img_LR_list.append(img_LR)
+
+        # Crop to size
+        _, LH, LW = self.LR_image_shape
+        rnd_h_LR = random.randint(0, max(0, LH - self.HR_crop_image_shape[1]))
+        rnd_w_LR = random.randint(0, max(0, LW - self.HR_crop_image_shape[2]))
+        rnd_h_HR = int(rnd_h_LR * self.settings["scale"])
+        rnd_w_HR = int(rnd_w_LR * self.settings["scale"])
+        img_LR_list = [v[rnd_h_LR:rnd_h_LR + self.LR_crop_image_shape[1], rnd_w_LR:rnd_w_LR + self.LR_crop_image_shape[2], :] for v in img_LR_list]
+        img_HR_list = [v[rnd_h_HR:rnd_h_HR + self.HR_crop_image_shape[1], rnd_w_HR:rnd_w_HR + self.HR_crop_image_shape[2], :] for v in img_HR_list]
 
         # Augmentation - flip, rotate
         img_list = img_LR_list + img_HR_list
