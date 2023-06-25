@@ -61,8 +61,8 @@ class Trainer:
         self.save_training_state()
 
     def train_one_batch(self, train_data):
-        inputs = train_data["LRs"].to('cuda')   #[5, 4, 3, 64, 112]
-        targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 448]
+        inputs = train_data["LRs"].to('cuda')   #[5, 4, 3, 64, 96]
+        targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 384]
 
         #zero the gradients
         self.optimiser.zero_grad()

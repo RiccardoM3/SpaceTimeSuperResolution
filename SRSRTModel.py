@@ -21,7 +21,7 @@ class SRSRTModel(nn.Module):
         # Define options
         E = 4 # num of encoder frames
         C = 3 # num of channels
-        FC = 16 # num of feature channels
+        FC = 64 # num of feature channels
         D = 3 # num of decoder frames
         
         drop_rate=0.
@@ -105,7 +105,8 @@ class SRSRTModel(nn.Module):
                     dim=FC, 
                     depth=decoder_layer_setting["windows"], 
                     num_heads=decoder_layer_setting["heads"], 
-                    num_frames=D, window_size=window_size, mlp_ratio=mlp_ratio,
+                    num_kv_frames=E, num_out_frames=D, 
+                    window_size=window_size, mlp_ratio=mlp_ratio,
                     qkv_bias=qkv_bias, qk_scale=qk_scale, drop=drop_rate, 
                     attn_drop=attn_drop_rate,
                     # drop_path=dec_dpr[sum(num_windows_per_decoder_layer[:i]):sum(num_windows_per_decoder_layer[:i + 1])], #TODO
@@ -124,7 +125,7 @@ class SRSRTModel(nn.Module):
     def forward(self, x):
         B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num input video frames. C num colour channels.
         D = 3
-        FC = 16
+        FC = 64
         OD = 2*N-1 # num output video frames
         OH = H*4 # output H
         OW = W*4 # output W
@@ -150,6 +151,7 @@ class SRSRTModel(nn.Module):
                 x = self.downsample_layers[i](x)
 
         # TODO: use diffblock instead
+        # Diffblock should get reduce size of 3 input frames from trilinear interp.
         y = torch.zeros((B, D, FC, H//8, W//8), device=x.device)
 
         # Get decoder output

@@ -166,7 +166,7 @@ class WindowAttention3D(nn.Module):
 
         # Get pair-wise relative position index for each token inside the window
         coords_d_q = torch.arange(self.num_frames_q)
-        coords_d_kv = torch.arange(0, self.num_frames_q, int((self.num_frames_q + 1) // self.num_frames_kv))
+        coords_d_kv = torch.arange(self.num_frames_kv)
         coords_h = torch.arange(self.window_size[0])
         coords_w = torch.arange(self.window_size[1])
         coords_q = torch.stack(torch.meshgrid([coords_d_q, coords_h, coords_w]))  # 3, D1, Wh, Ww
@@ -340,7 +340,7 @@ class VSTSREncoderTransformerBlock(nn.Module):
 class VSTSRDecoderTransformerBlock(nn.Module):
     """Video spatial-temporal super-resolution decoder transformer block.
     """
-    def __init__(self, dim, num_heads, num_frames=4, window_size=(8, 8), 
+    def __init__(self, dim, num_heads, num_kv_frames=4, num_out_frames=3, window_size=(8, 8), 
                  shift_size=(0, 0), mlp_ratio=4., qkv_bias=True, qk_scale=None,
                  drop=0., attn_drop=0., drop_path=0., act_layer=nn.GELU, 
                  norm_layer=nn.LayerNorm):
@@ -364,8 +364,8 @@ class VSTSRDecoderTransformerBlock(nn.Module):
         super().__init__()
         self.dim = dim
         self.num_heads = num_heads
-        self.num_frames = num_frames
-        self.num_out_frames = 2 * num_frames - 1
+        self.num_kv_frames = num_kv_frames
+        self.num_out_frames = num_out_frames
         self.window_size = window_size
         self.shift_size = shift_size
         self.mlp_ratio = mlp_ratio
@@ -381,7 +381,7 @@ class VSTSRDecoderTransformerBlock(nn.Module):
         )
         self.attn2 = WindowAttention3D(
             dim, num_frames_q=self.num_out_frames, 
-            num_frames_kv=self.num_frames, window_size=self.window_size, 
+            num_frames_kv=self.num_kv_frames, window_size=self.window_size, 
             num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, 
             attn_drop=attn_drop, proj_drop=drop
         )
@@ -575,7 +575,7 @@ class EncoderLayer(nn.Module):
         return x
 
 class DecoderLayer(nn.Module):
-    def __init__(self, dim, depth, num_heads, num_frames, window_size=(8, 8), 
+    def __init__(self, dim, depth, num_heads, num_kv_frames=4, num_out_frames=3, window_size=(8, 8), 
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., 
                  drop_path=0., norm_layer=nn.LayerNorm):
         """Decoder layer
@@ -602,8 +602,8 @@ class DecoderLayer(nn.Module):
         # Build blocks
         self.blocks = nn.ModuleList([
             VSTSRDecoderTransformerBlock(dim=dim, num_heads=num_heads,
-            num_frames=num_frames,window_size=window_size, 
-            shift_size=(0, 0) if (i % 2 == 0) else self.shift_size,
+            num_kv_frames=num_kv_frames, num_out_frames=num_out_frames,
+            window_size=window_size, shift_size=(0, 0) if (i % 2 == 0) else self.shift_size,
             mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
             drop=drop, attn_drop=attn_drop,
             drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
