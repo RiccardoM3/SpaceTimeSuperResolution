@@ -73,7 +73,8 @@ class SRSRTModel(nn.Module):
         # Define Layers
 
         # Feature Extraction
-        self.feature_extraction = nn.Conv2d(C, FC, kernel_size=3, stride=1, padding=1)
+        self.feature_extraction_1 = nn.Conv2d(C, FC, kernel_size=3, stride=1, padding=1)
+        self.feature_extraction_2 = nn.Conv2d(C, FC, kernel_size=3, stride=1, padding=1)
 
         # Encoder
         self.encoder_layers = nn.ModuleList()
@@ -117,19 +118,28 @@ class SRSRTModel(nn.Module):
                 upsample = Upsample(FC, FC)
                 self.upsample_layers.append(upsample)
 
-        # Temporary reconstruction upsampling
-        self.u1 = Upsample(FC, FC)
-        self.u2 = Upsample(FC, FC)
+        # Final Super Resolution
+        self.upconv1 = nn.Conv2d(FC, FC * 4, 3, 1, 1, bias=True)
+        self.upconv2 = nn.Conv2d(FC, 64 * 4, 3, 1, 1, bias=True)
+        self.pixel_shuffle = nn.PixelShuffle(2)
+        self.HRconv = nn.Conv2d(64, 64, 3, 1, 1, bias=True)
+        self.conv_last = nn.Conv2d(64, 3, 3, 1, 1, bias=True)
+
+        # Activation function
+        self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
 
 
-    def forward(self, x):
+    def forward(self, x, y, pos=(0,1)):
+        assert(pos[1] - pos[0] == 1) #ensure they are consecutive numbers
+
         B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num input video frames. C num colour channels.
         D = 3
         FC = 64
         OD = 2*N-1 # num output video frames
         OH = H*4 # output H
         OW = W*4 # output W
-        # print(B, D, C, H, W)
+        QH = H//2**(len(self.encoder_layers)-1) # query H
+        QW = W//2**(len(self.encoder_layers)-1) # query W
 
         # Trilinear interpolation
         x = x.permute(0, 2, 1, 3, 4)
@@ -139,9 +149,25 @@ class SRSRTModel(nn.Module):
 
         # Feature Extraction
         x = x.view(B * N, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
-        x = self.feature_extraction(x)
+        x = self.feature_extraction_1(x)
         x = x.view(B, N, FC, H, W) # Reshape the output tensor back to its original shape
 
+        # Generate Queries for Decoder
+        # TODO: posblock?
+        # TODO: add pos
+        # TODO: 1 = 1 - avg(2,3)
+        # TODO: 2 = 2 - avg(1,3)
+        # TODO: 3 = 3 - avg(1,2)
+        y = y.reshape(B * 2, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
+        y = F.interpolate(y, scale_factor=1/2**(len(self.encoder_layers)-1), mode='bilinear', align_corners=False) # downscale the images to match the decoder query input size
+        y = y.view(B, 2, C, QH, QW) # Reshape the output tensor back to its original shape
+        y = y.permute(0, 2, 1, 3, 4)
+        y = F.interpolate(y, (D, QH, QW), mode='trilinear', align_corners=False) # trilinear interpolation to get the middle image
+        y = y.permute(0, 2, 1, 3, 4)
+        y = y.reshape(B * D, C, QH, QW) # Reshape the input tensor to merge batches with the sequence of images
+        y = self.feature_extraction_2(y) # get FC features
+        y = y.view(B, D, FC, QH, QW) # Reshape the output tensor back to its original shape
+        
         # Obtain encoder features
         encoder_features = []
         for i in range(len(self.encoder_layers)):
@@ -150,25 +176,21 @@ class SRSRTModel(nn.Module):
             if i != len(self.encoder_layers) - 1:
                 x = self.downsample_layers[i](x)
 
-        # TODO: use diffblock instead
-        # Diffblock should get reduce size of 3 input frames from trilinear interp.
-        y = torch.zeros((B, D, FC, H//8, W//8), device=x.device)
-
-        # Get decoder output
+        # Get decoder output 
         for i in range(len(self.decoder_layers)):
-            # print(y.size())                           [5, 3, 16, 8, 12]
-            # print(encoder_features[-i - 1].size())    [5, 4, 16, 8, 12]
             y = self.decoder_layers[i](y, encoder_features[-i - 1])
             if i != len(self.decoder_layers) - 1:
                 y = self.upsample_layers[i](y)
 
-        # Temporary reconstruction upsampling
-        y = self.u1(y)
-        y = self.u2(y)
+        # Final Super Resolution
+        y = y.view(B*D, FC, H, W)
+        y = self.lrelu(self.pixel_shuffle(self.upconv1(y)))
+        y = self.lrelu(self.pixel_shuffle(self.upconv2(y)))
+        y = self.lrelu(self.HRconv(y))
+        y = self.conv_last(y)
+        y = y.view(B, D, C, OH, OW)
 
-        # TODO: y has dim D = 3, upsame_x has dim D = 7
-
-        return y + upsample_x
+        return y + upsample_x[:, 2*pos[0]:2*pos[1]+1, :, :, :]
         
     def load_model(self, model_name):
         model_path = f"models/{model_name}_model"

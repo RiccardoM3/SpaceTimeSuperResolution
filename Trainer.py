@@ -63,19 +63,26 @@ class Trainer:
     def train_one_batch(self, train_data):
         inputs = train_data["LRs"].to('cuda')   #[5, 4, 3, 64, 96]
         targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 384]
+        
+        loss = 0
+        for i in range(len(inputs)-1):
+            #zero the gradients
+            self.optimiser.zero_grad()
+            
+            context = inputs
+            input_frames = inputs[:, i:i+2, :, :, :]
+            target_frames = targets[:, 2*i:2*(i+1)+1, :, :, :]
+            output_frames = self.model(context, input_frames, (i, i+1))
 
-        #zero the gradients
-        self.optimiser.zero_grad()
-        outputs = self.model(inputs)
+            # display the first output of the batch
+            self.observe_sequence(input_frames[0], output_frames[0], target_frames[0])
 
-        # display the first output of the batch
-        self.observe_sequence(inputs[0], outputs[0], targets[0])
+            loss += self.loss_function(output_frames, target_frames)
+            loss.backward()
+            self.optimiser.step()
 
-        loss = self.loss_function(outputs, targets)
-        loss.backward()
-        self.optimiser.step()
-
-        return loss
+        # return avg loss
+        return loss/(len(inputs)-1)
 
     def observe_sequence(self, input, output, target):
         num_outputs = output.size()[0]
