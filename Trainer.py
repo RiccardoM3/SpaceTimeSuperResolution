@@ -65,12 +65,14 @@ class Trainer:
         targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 384]
         
         loss = 0
-        for i in range(len(inputs)-1):
+        num_frame_pairs = len(inputs)-1
+        num_frame_pairs = 1 #TODO: delete this
+        for i in range(num_frame_pairs):
             #zero the gradients
             self.optimiser.zero_grad()
             
-            context = inputs
-            input_frames = inputs[:, i:i+2, :, :, :]
+            context = inputs.clone()
+            input_frames = context[:, i:i+2, :, :, :]
             target_frames = targets[:, 2*i:2*(i+1)+1, :, :, :]
             output_frames = self.model(context, input_frames, (i, i+1))
 
@@ -82,11 +84,11 @@ class Trainer:
             self.optimiser.step()
 
         # return avg loss
-        return loss/(len(inputs)-1)
+        return loss/num_frame_pairs
 
     def observe_sequence(self, input, output, target):
         num_outputs = output.size()[0]
-        fig, axs = plt.subplots(3, num_outputs, figsize=(20,5), sharex=True, sharey=True)
+        fig, axs = plt.subplots(3, num_outputs, figsize=(12,8), sharex=True, sharey=True)
         fig.subplots_adjust(wspace=0, hspace=0)
         for i in range(num_outputs):
             
