@@ -114,8 +114,8 @@ class Trainer:
         fig.subplots_adjust(wspace=0, hspace=0)
         for i in range(num_outputs):
             
-            current_target = target[i].permute(1, 2, 0).cpu().clone().numpy()
             current_output = output[i].permute(1, 2, 0).cpu().detach().clone().numpy()
+            current_target = target[i].permute(1, 2, 0).cpu().clone().numpy()
 
             if i % 2 == 0:
                 current_input = input[i//2].permute(1, 2, 0).cpu().numpy()
@@ -123,9 +123,9 @@ class Trainer:
                 axs[0][i].imshow(current_input)
                 
             axs[0][i].axis('off')
-            axs[1][i].imshow(current_target)
+            axs[1][i].imshow(current_output)
             axs[1][i].axis('off')
-            axs[2][i].imshow(current_output)
+            axs[2][i].imshow(current_target)
             axs[2][i].axis('off')
 
         plt.show()
