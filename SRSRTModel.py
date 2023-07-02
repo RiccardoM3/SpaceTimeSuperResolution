@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os
 import sys
-from Layers import (make_layer, ResidualBlock_noBN, EncoderLayer, DecoderLayer, 
+import matplotlib.pyplot as plt
+from Layers import (EncoderLayer, DecoderLayer, 
                      InputProj, Downsample, Upsample)
 
 # define the model architecture
@@ -65,16 +66,15 @@ class SRSRTModel(nn.Module):
         ]
 
         # Stochastic depth
-        num_windows_per_encoder_layer = [sum(setting["windows"] for setting in encoder_layer_settings)]
-        num_windows_per_decoder_layer = [sum(setting["windows"] for setting in decoder_layer_settings)]
-        enc_dpr= [x.item() for x in torch.linspace(0, drop_path_rate, sum(num_windows_per_encoder_layer))] 
+        enc_windows = [setting["windows"] for setting in encoder_layer_settings]
+        dec_windows = [setting["windows"] for setting in decoder_layer_settings]
+        enc_dpr= [x.item() for x in torch.linspace(0, drop_path_rate, sum(enc_windows))] 
         dec_dpr = enc_dpr[::-1]
 
         # Define Layers
 
         # Feature Extraction
-        self.feature_extraction_1 = nn.Conv2d(C, FC, kernel_size=3, stride=1, padding=1)
-        self.feature_extraction_2 = nn.Conv2d(C, FC, kernel_size=3, stride=1, padding=1)
+        self.feature_extraction = InputProj(in_channels=C, embed_dim=FC, kernel_size=3, stride=1, act_layer=nn.LeakyReLU)
 
         # Encoder
         self.encoder_layers = nn.ModuleList()
@@ -88,7 +88,7 @@ class SRSRTModel(nn.Module):
                     num_frames=E, window_size=window_size, mlp_ratio=mlp_ratio,
                     qkv_bias=qkv_bias, qk_scale=qk_scale, drop=drop_rate, 
                     attn_drop=attn_drop_rate,
-                    # drop_path=enc_dpr[sum(num_windows_per_encoder_layer[:i]):sum(num_windows_per_encoder_layer[:i + 1])], #TODO
+                    drop_path=enc_dpr[sum(enc_windows[:i]):sum(enc_windows[:i + 1])],
                     norm_layer=norm_layer
             )
             self.encoder_layers.append(encoder_layer)
@@ -110,7 +110,7 @@ class SRSRTModel(nn.Module):
                     window_size=window_size, mlp_ratio=mlp_ratio,
                     qkv_bias=qkv_bias, qk_scale=qk_scale, drop=drop_rate, 
                     attn_drop=attn_drop_rate,
-                    # drop_path=dec_dpr[sum(num_windows_per_decoder_layer[:i]):sum(num_windows_per_decoder_layer[:i + 1])], #TODO
+                    drop_path=dec_dpr[sum(dec_windows[:i]):sum(dec_windows[:i + 1])],
                     norm_layer=norm_layer
             )
             self.decoder_layers.append(decoder_layer)
@@ -148,26 +148,26 @@ class SRSRTModel(nn.Module):
         x = x.permute(0, 2, 1, 3, 4)
 
         # Feature Extraction
-        x = x.view(B * N, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
-        x = self.feature_extraction_1(x)
-        x = x.view(B, N, FC, H, W) # Reshape the output tensor back to its original shape
+        x = self.feature_extraction(x)
 
         # Generate Queries for Decoder
-        # TODO: posblock?
-        # TODO: add pos
-        # TODO: 1 = 1 - avg(2,3)
-        # TODO: 2 = 2 - avg(1,3)
-        # TODO: 3 = 3 - avg(1,2)
+        # TODO: add pos or mask?
         y = y.reshape(B * 2, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
         y = F.interpolate(y, scale_factor=1/2**(len(self.encoder_layers)-1), mode='bilinear', align_corners=False) # downscale the images to match the decoder query input size
-        y = y.view(B, 2, C, QH, QW) # Reshape the output tensor back to its original shape
+        y = y.reshape(B, 2, C, QH, QW) # Reshape the output tensor back to its original shape
         y = y.permute(0, 2, 1, 3, 4)
         y = F.interpolate(y, (D, QH, QW), mode='trilinear', align_corners=False) # trilinear interpolation to get the middle image
         y = y.permute(0, 2, 1, 3, 4)
-        y = y.reshape(B * D, C, QH, QW) # Reshape the input tensor to merge batches with the sequence of images
-        y = self.feature_extraction_2(y) # get FC features
-        y = y.view(B, D, FC, QH, QW) # Reshape the output tensor back to its original shape
-        
+
+        y = self.feature_extraction(y) # get FC features
+
+        # this obtains the differences between the frames
+        q = torch.zeros(B, D, FC, QH, QW, device=y.device)
+        q[:, 0, :, :, :] = y[:, 0, :, :, :] - (y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2
+        q[:, 1, :, :, :] = y[:, 1, :, :, :] - (y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2
+        q[:, 2, :, :, :] = y[:, 2, :, :, :] - (y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2
+        y = q
+
         # Obtain encoder features
         encoder_features = []
         for i in range(len(self.encoder_layers)):
@@ -191,7 +191,17 @@ class SRSRTModel(nn.Module):
         y = y.view(B, D, C, OH, OW)
 
         return y + upsample_x[:, 2*pos[0]:2*pos[1]+1, :, :, :]
-        
+
+
+    def debug_show_images(self, images):
+        fig, axs = plt.subplots(len(images), 1, figsize=(12,8), sharex=True, sharey=True)
+        fig.subplots_adjust(wspace=0, hspace=0)
+        for i in range(len(images)):
+            current_image = images[i].permute(1,2,0).cpu().detach().clone().numpy()
+            axs[i].axis('off')
+            axs[i].imshow(current_image)
+        plt.show()
+
     def load_model(self, model_name):
         model_path = f"models/{model_name}_model"
 
@@ -217,3 +227,29 @@ class SRSRTModel(nn.Module):
         # pass the input through the model and print the output
         output = self(x)
         print(output)
+
+    def named_parameters(self, prefix: str = '', recurse: bool = True):
+        r"""Returns an iterator over module parameters, yielding both the
+        name of the parameter as well as the parameter itself.
+
+        Args:
+            prefix (str): prefix to prepend to all parameter names.
+            recurse (bool): if True, then yields parameters of this module
+                and all submodules. Otherwise, yields only parameters that
+                are direct members of this module.
+
+        Yields:
+            (string, Parameter): Tuple containing the name and parameter
+
+        Example::
+
+            >>> for name, param in self.named_parameters():
+            >>>    if name in ['bias']:
+            >>>        print(param.size())
+
+        """
+        gen = self._named_members(
+            lambda module: module._parameters.items(),
+            prefix=prefix, recurse=recurse)
+        for elem in gen:
+            yield elem

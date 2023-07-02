@@ -1,10 +1,12 @@
 import os
+import random
 import numpy as np
 import matplotlib.pyplot as plt
 import signal
 import threading
 import torch
 from Loss import CharbonnierLoss
+from LRScheduler import CosineAnnealingLR_Restart
 import Vimeo90K
 
 class Trainer:
@@ -14,36 +16,56 @@ class Trainer:
         self.settings = settings
         self.train_list_path = train_list_path
 
-        self.__stop_training = False
+        self.stop_training = False
+        self.epoch = 0
+        self.iter = 0
 
         self.train_set = Vimeo90K.create_dataset(self.settings, self.train_list_path)
         self.train_loader = Vimeo90K.create_dataloader(self.train_set, self.settings["batch_size"])
 
         self.loss_function = CharbonnierLoss().to('cuda')
-        self.optimiser = torch.optim.SGD(self.model.parameters(), lr=0.01)
-        self.epoch = 0
-        self.iter = 0
+
+        # optimiser
+        optim_params = []
+        for _, v in self.model.named_parameters():
+            if v.requires_grad:
+                optim_params.append(v)
+        self.optimiser = torch.optim.AdamW(optim_params, lr=self.settings["training"]["learning_rate"],
+                                            weight_decay=self.settings["training"]["weight_decay"],
+                                            betas=(self.settings["training"]["beta1"], self.settings["training"]["beta2"]))
+        # schedulers
+        self.scheduler = CosineAnnealingLR_Restart(
+                self.optimiser, self.settings["training"]["T_period"], 
+                eta_min=self.settings["training"]["eta_min"],
+                restarts=self.settings["training"]["restarts"], 
+                weights=self.settings["training"]["restart_weights"]
+        )
 
     def train(self):
         self.model.train()
 
         def signal_handler():
             print("Stopping training. Please wait...")
-            self.__stop_training = True
+            self.stop_training = True
+            plt.close()
+
         # run the signal handler on a new thread so the print statements dont conflict with ones which are already running while interrupted
         signal.signal(signal.SIGINT, lambda _, __: threading.Timer(0.01, signal_handler).start())
 
-        while not self.__stop_training and self.epoch < self.settings['num_epochs']:
+        while not self.stop_training and self.epoch < self.settings['num_epochs']:
             print(f"Epoch {self.epoch}/{self.settings['num_epochs']}")
 
             for _, train_data in enumerate(self.train_loader):
                 if self.iter > self.settings["max_iters_per_epoch"]:
                     break
 
-                loss = self.train_one_batch(train_data)
-                
+                loss = self.train_one_sequence(train_data)
+
                 current_iter = self.iter
                 self.iter += 1
+
+                # update learning rate
+                self.update_learning_rate(current_iter, warmup_iter=self.settings["training"]["warmup_iter"])
 
                 if current_iter != 0 and current_iter % self.settings["training_save_interval"] == 0:
                     print(f"Iter: {current_iter}")
@@ -60,31 +82,31 @@ class Trainer:
         self.model.save_model(self.model_name)
         self.save_training_state()
 
-    def train_one_batch(self, train_data):
+    def train_one_sequence(self, train_data):
         inputs = train_data["LRs"].to('cuda')   #[5, 4, 3, 64, 96]
         targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 384]
+
+        # pick a random timestamp for the 2 input frames
+        i = random.randint(0, len(inputs)-1)
+        j=i+1
         
-        loss = 0
-        num_frame_pairs = len(inputs)-1
-        num_frame_pairs = 1 #TODO: delete this
-        for i in range(num_frame_pairs):
-            #zero the gradients
-            self.optimiser.zero_grad()
-            
-            context = inputs.clone()
-            input_frames = context[:, i:i+2, :, :, :]
-            target_frames = targets[:, 2*i:2*(i+1)+1, :, :, :]
-            output_frames = self.model(context, input_frames, (i, i+1))
+        context = inputs
+        input_frames = context[:, i:j+1, :, :, :]
+        target_frames = targets[:, 2*i:2*j+1, :, :, :]
+        output_frames = self.model(context, input_frames, (i, j))
 
-            # display the first output of the batch
-            self.observe_sequence(input_frames[0], output_frames[0], target_frames[0])
+        # display the first output of the batch
+        self.observe_sequence(input_frames[1], output_frames[1], target_frames[1])
 
-            loss += self.loss_function(output_frames, target_frames)
-            loss.backward()
-            self.optimiser.step()
+        #compute loss
+        loss = self.loss_function(output_frames, target_frames)
+        
+        self.optimiser.zero_grad() #zero the gradients
+        loss.backward() #backward pass
+        self.optimiser.step() #update weights
 
         # return avg loss
-        return loss/num_frame_pairs
+        return loss
 
     def observe_sequence(self, input, output, target):
         num_outputs = output.size()[0]
@@ -92,8 +114,8 @@ class Trainer:
         fig.subplots_adjust(wspace=0, hspace=0)
         for i in range(num_outputs):
             
-            current_target = target[i].permute(1, 2, 0).cpu().numpy()
-            current_output = output[i].permute(1, 2, 0).cpu().detach().numpy()
+            current_target = target[i].permute(1, 2, 0).cpu().clone().numpy()
+            current_output = output[i].permute(1, 2, 0).cpu().detach().clone().numpy()
 
             if i % 2 == 0:
                 current_input = input[i//2].permute(1, 2, 0).cpu().numpy()
@@ -108,6 +130,28 @@ class Trainer:
 
         plt.show()
 
+    def _set_lr(self, lr_groups):
+        ''' set learning rate for warmup,
+        lr_groups_l: list for lr_groups. each for a optimizer'''
+        for param_group, lr in zip(self.optimizer.param_groups, lr_groups):
+            param_group['lr'] = lr
+
+    def _get_init_lr(self):
+        # get the initial lr, which is set by the scheduler
+        init_lr_groups = [v['initial_lr'] for v in self.optimizer.param_groups]
+        return init_lr_groups
+
+    def update_learning_rate(self, cur_iter, warmup_iter=-1):
+        self.scheduler.step()
+        # set up warm up learning rate
+        if cur_iter < warmup_iter:
+            # get initial lr for each group
+            init_lr_groups = self._get_init_lr()
+            # modify warming-up learning rates
+            warmup_lr = [v / warmup_iter * cur_iter for v in init_lr_groups]
+            # set learning rate
+            self._set_lr(warmup_lr)
+
     def load_training_state(self):
         training_state_path = f"training_states/{self.model_name}_state.pth"
 
@@ -116,6 +160,7 @@ class Trainer:
             self.epoch = training_state["epoch"]
             self.iter = training_state["iter"]
             self.optimiser.load_state_dict(training_state["optimiser"])
+            self.scheduler.load_state_dict(training_state["scheduler"])
             print("Loaded training state:")
             print(training_state)
         else:
@@ -127,7 +172,8 @@ class Trainer:
         training_state = {
             "epoch": self.epoch,
             "iter": self.iter,
-            "optimiser": self.optimiser.state_dict()
+            "optimiser": self.optimiser.state_dict(),
+            "scheduler": self.scheduler.state_dict()
         }
 
         if not os.path.exists("training_states"):

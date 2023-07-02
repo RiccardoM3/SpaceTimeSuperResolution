@@ -700,8 +700,8 @@ class InputProj(nn.Module):
             torch.Tensor: (B, D, C, H, W)
         """
         B, D, C, H, W = x.shape
-        x = x.view(-1, C, H, W) # B*D, C, H, W
-        x = self.proj(x).view(B, D, -1, H, W) # B, D, C, H, W
+        x = x.reshape(-1, C, H, W) # B*D, C, H, W
+        x = self.proj(x).reshape(B, D, -1, H, W) # B, D, C, H, W
         if self.norm is not None:
             x = x.permute(0, 1, 3, 4, 2) # B, D, H, W, C
             x = self.norm(x)
