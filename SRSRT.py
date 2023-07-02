@@ -2,6 +2,7 @@ import sys
 import os
 from SRSRTModel import SRSRTModel
 from Trainer import Trainer
+from Evaluator import Evaluator
 import Vimeo90K
 from SRSRTSettings import SRSRT_SETTINGS_DEFAULT
 
@@ -10,25 +11,22 @@ class SRSRT:
         self.settings = SRSRT_SETTINGS_DEFAULT
 
     def run(self):
-        if len(sys.argv) == 1:
-            print("Please provide command line arguments")
-            sys.exit(0)
-
-        if sys.argv[1] == "prepare_data":
-            if len(sys.argv) == 2:
-                if not os.path.isdir('./vimeo_septuplet/sequences'):
-                    print("'./vimeo_septuplet/sequences' wasn't found. Please follow the guide in the README")
+        if len(sys.argv) > 1:
+            if sys.argv[1] == "prepare_data":
+                if len(sys.argv) == 2:
+                    if not os.path.isdir('./vimeo_septuplet/sequences'):
+                        print("'./vimeo_septuplet/sequences' wasn't found. Please follow the guide in the README")
+                        return
+                    self.prepare_data()
                     return
-                self.prepare_data()
-                return
-        elif sys.argv[1] == "train":
-            if len(sys.argv) == 4 and os.path.isfile(sys.argv[3]):
-                self.train(sys.argv[2], sys.argv[3])
-                return
-        elif sys.argv[1] == "evaluate":
-            if len(sys.argv) == 4 and os.path.isdir(sys.argv[3]):
-                self.evaluate(sys.argv[2], sys.argv[3])
-                return
+            elif sys.argv[1] == "train":
+                if len(sys.argv) == 4 and os.path.isfile(sys.argv[3]):
+                    self.train(sys.argv[2], sys.argv[3])
+                    return
+            elif sys.argv[1] == "eval":
+                if len(sys.argv) == 4 and os.path.isfile(sys.argv[3]):
+                    self.evaluate(sys.argv[2], sys.argv[3])
+                    return
 
         print("Please provide correct command line arguments")
         sys.exit(0)
@@ -49,7 +47,9 @@ class SRSRT:
     def evaluate(self, model_name, evaluation_path):
         model = SRSRTModel().to('cuda')
         model.load_model(model_name)
-        model.evaluate(evaluation_path)
+
+        evaluator = Evaluator(model, model_name, self.settings, evaluation_path)
+        evaluator.eval()
 
 if __name__ == "__main__":
     program = SRSRT()

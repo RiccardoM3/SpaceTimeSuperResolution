@@ -219,14 +219,6 @@ class SRSRTModel(nn.Module):
 
         torch.save(self.state_dict(), f"{model_path}.pth")
         print("Saved model")
-    
-    def evaluate(self, evaluation_path):
-        # create a sample input
-        x = torch.randn(1, self.__input_size)
-
-        # pass the input through the model and print the output
-        output = self(x)
-        print(output)
 
     def named_parameters(self, prefix: str = '', recurse: bool = True):
         r"""Returns an iterator over module parameters, yielding both the

@@ -67,9 +67,9 @@ class Trainer:
                 # update learning rate
                 self.update_learning_rate(current_iter, warmup_iter=self.settings["training"]["warmup_iter"])
 
+                print(f"Iter: {current_iter} | Loss: {loss.item()}")
+
                 if current_iter != 0 and current_iter % self.settings["training_save_interval"] == 0:
-                    print(f"Iter: {current_iter}")
-                    print(f"Loss: {loss.item()}")
                     self.model.save_model(self.model_name)
                     self.save_training_state()
 
@@ -96,7 +96,7 @@ class Trainer:
         output_frames = self.model(context, input_frames, (i, j))
 
         # display the first output of the batch
-        self.observe_sequence(input_frames[1], output_frames[1], target_frames[1])
+        # self.observe_sequence(input_frames[1], output_frames[1], target_frames[1])
 
         #compute loss
         loss = self.loss_function(output_frames, target_frames)

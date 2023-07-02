@@ -20,4 +20,4 @@ Data preparation must be run before training or evaluation is run:
 ## Training
 ``python SRSRT.py train <model_name> <training_set_path>`` 
 
-``python SRSRT.py evaluate <model_name> <evaluation_set_path>``
+``python SRSRT.py eval <model_name> <evaluation_set_path>``
