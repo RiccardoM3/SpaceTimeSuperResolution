@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import signal
 import threading
 import torch
+from Logger import Logger
 from Loss import CharbonnierLoss
 from LRScheduler import CosineAnnealingLR_Restart
 import Vimeo90K
@@ -15,6 +16,7 @@ class Trainer:
         self.model_name = model_name
         self.settings = settings
         self.train_list_path = train_list_path
+        self.logger = Logger(self.model_name)
 
         self.stop_training = False
         self.epoch = 0
@@ -53,7 +55,7 @@ class Trainer:
         signal.signal(signal.SIGINT, lambda _, __: threading.Timer(0.01, signal_handler).start())
 
         while not self.stop_training and self.epoch < self.settings['num_epochs']:
-            print(f"Epoch {self.epoch}/{self.settings['num_epochs']}")
+            self.logger.log("Epoch", f"Epoch {self.epoch}/{self.settings['num_epochs']}")
 
             for _, train_data in enumerate(self.train_loader):
                 if self.iter > self.settings["max_iters_per_epoch"]:
@@ -67,7 +69,7 @@ class Trainer:
                 # update learning rate
                 self.update_learning_rate(current_iter, warmup_iter=self.settings["training"]["warmup_iter"])
 
-                print(f"Iter: {current_iter} | Loss: {loss.item()}")
+                self.logger.log("Loss", f"Epoch: {self.epoch} | Iter: {current_iter} | Loss: {loss.item()}")
 
                 if current_iter != 0 and current_iter % self.settings["training_save_interval"] == 0:
                     self.model.save_model(self.model_name)
@@ -90,7 +92,7 @@ class Trainer:
         _, num_input_frames, _, _, _ = inputs.size()
         i = random.randint(0, num_input_frames-2)
         j=i+1
-        
+
         context = inputs
         input_frames = context[:, i:j+1, :, :, :]
         target_frames = targets[:, 2*i:2*j+1, :, :, :]
@@ -162,8 +164,7 @@ class Trainer:
             self.iter = training_state["iter"]
             self.optimiser.load_state_dict(training_state["optimiser"])
             self.scheduler.load_state_dict(training_state["scheduler"])
-            print("Loaded training state:")
-            print(training_state)
+            print(f"Loaded training state: {self.epoch}-{self.iter}")
         else:
             print(f"{training_state_path} doesn't exist.")
 
@@ -181,7 +182,7 @@ class Trainer:
             os.makedirs("training_states")
 
         torch.save(training_state, training_state_path)
-        print("Saved training state")
+        self.logger.log("Save", "Saved training state")
 
 
         
