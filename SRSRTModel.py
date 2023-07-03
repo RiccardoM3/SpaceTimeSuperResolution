@@ -129,7 +129,7 @@ class SRSRTModel(nn.Module):
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
 
 
-    def forward(self, x, y, pos=(0,1)):
+    def forward(self, x, y, pos, skip_encoder=False):
         assert(pos[1] - pos[0] == 1) #ensure they are consecutive numbers
 
         B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num input video frames. C num colour channels.
@@ -146,9 +146,6 @@ class SRSRTModel(nn.Module):
         upsample_x = F.interpolate(x, (OD, OH, OW), mode='trilinear', align_corners=False)
         upsample_x = upsample_x.permute(0, 2, 1, 3, 4)
         x = x.permute(0, 2, 1, 3, 4)
-
-        # Feature Extraction
-        x = self.feature_extraction(x)
 
         # Generate Queries for Decoder
         # TODO: add pos or mask?
@@ -168,17 +165,21 @@ class SRSRTModel(nn.Module):
         q[:, 2, :, :, :] = y[:, 2, :, :, :] - (y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2
         y = q
 
-        # Obtain encoder features
-        encoder_features = []
-        for i in range(len(self.encoder_layers)):
-            x = self.encoder_layers[i](x)
-            encoder_features.append(x)
-            if i != len(self.encoder_layers) - 1:
-                x = self.downsample_layers[i](x)
+        # Feature Extraction
+        if not skip_encoder:
+            x = self.feature_extraction(x)
+
+            # Obtain encoder features
+            self.encoder_features = []
+            for i in range(len(self.encoder_layers)):
+                x = self.encoder_layers[i](x)
+                self.encoder_features.append(x)
+                if i != len(self.encoder_layers) - 1:
+                    x = self.downsample_layers[i](x)
 
         # Get decoder output 
         for i in range(len(self.decoder_layers)):
-            y = self.decoder_layers[i](y, encoder_features[-i - 1])
+            y = self.decoder_layers[i](y, self.encoder_features[-i - 1])
             if i != len(self.decoder_layers) - 1:
                 y = self.upsample_layers[i](y)
 

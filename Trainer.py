@@ -87,7 +87,8 @@ class Trainer:
         targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 384]
 
         # pick a random timestamp for the 2 input frames
-        i = random.randint(0, len(inputs)-1)
+        _, num_input_frames, _, _, _ = inputs.size()
+        i = random.randint(0, num_input_frames-2)
         j=i+1
         
         context = inputs

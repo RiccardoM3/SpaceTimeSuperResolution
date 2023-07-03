@@ -1,9 +1,9 @@
-import random
 import numpy as np
 import matplotlib.pyplot as plt
 import signal
 import threading
 import Vimeo90K
+import torch
 
 class Evaluator:
     def __init__(self, model, model_name, settings, test_list_path):
@@ -36,21 +36,29 @@ class Evaluator:
         inputs = test_data["LRs"].to('cuda')   #[1, 4, 3, 64, 96]
         targets = test_data['HRs'].to('cuda')  #[1, 7, 3, 256, 384]
 
-        # pick a random timestamp for the 2 input frames
-        i = random.randint(0, len(inputs)-1)
-        j=i+1
-        
-        context = inputs
-        input_frames = context[:, i:j+1, :, :, :]
-        target_frames = targets[:, 2*i:2*j+1, :, :, :]
-        output_frames = self.model(context, input_frames, (i, j))
+        input_sequence = inputs[0]
+        output_sequence = torch.tensor([]).to('cuda')
+        target_sequence = targets[0]
 
-        # display the first output of the batch
-        self.observe_sequence(input_frames[0], output_frames[0], target_frames[0])
+        for i in range(len(input_sequence)-1):
+            j = i+1
+
+            input_frames = inputs[:, i:j+1, :, :, :]
+            output_frames = self.model(inputs, input_frames, (i, j), skip_encoder=(i!=0))
+
+            #take the first 2 out of 3 outputs for all but the last frame pair. for the last, take all 3 outputs
+            if j == len(input_sequence)-1:
+                output_sequence = torch.cat((output_sequence, output_frames[0]), dim=0)
+            else:
+                output_sequence = torch.cat((output_sequence, output_frames[0, :2]), dim=0)
+
+        # display the first sequence of the batch
+        print(input_sequence.shape, output_sequence.shape, target_sequence.shape)
+        self.observe_sequence(input_sequence, output_sequence, target_sequence)
 
     def observe_sequence(self, input, output, target):
         num_outputs = output.size()[0]
-        fig, axs = plt.subplots(3, num_outputs, figsize=(12,8), sharex=True, sharey=True)
+        fig, axs = plt.subplots(3, num_outputs, figsize=(18,6), sharex=True, sharey=True)
         fig.subplots_adjust(wspace=0, hspace=0)
         for i in range(num_outputs):
             
