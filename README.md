@@ -17,7 +17,9 @@ Then use the below command to install torch with CUDA:
 Data preparation must be run before training or evaluation is run:
 ``python SRSRT.py prepare_data``
 
-## Training
+## Commands
 ``python SRSRT.py train <model_name> <training_set_path>`` 
 
 ``python SRSRT.py eval <model_name> <evaluation_set_path>``
+
+``python SRSRT.py observe_log <tag> <log_path>``

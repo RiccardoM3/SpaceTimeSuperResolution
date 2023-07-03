@@ -69,7 +69,8 @@ class Trainer:
                 # update learning rate
                 self.update_learning_rate(current_iter, warmup_iter=self.settings["training"]["warmup_iter"])
 
-                self.logger.log("Loss", f"Epoch: {self.epoch} | Iter: {current_iter} | Loss: {loss.item()}")
+                self.logger.log("Iter", f"Epoch: {self.epoch} | Iter: {current_iter} | Loss: {loss.item()}")
+                self.logger.silent_log("Loss", loss.item())
 
                 if current_iter != 0 and current_iter % self.settings["training_save_interval"] == 0:
                     self.model.save_model(self.model_name)

@@ -15,5 +15,9 @@ class Logger:
         print(log)
         self.log_file.write(log + "\n")
 
+    def silent_log(self, tag, log):
+        log = f"{self.get_current_datetime()} [{tag}] >>> {log}"
+        self.log_file.write(log + "\n")
+
     def get_current_datetime(self):
         return datetime.now().strftime("%Y-%m-%d-%H-%M-%S")

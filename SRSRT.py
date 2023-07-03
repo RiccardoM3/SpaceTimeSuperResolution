@@ -3,6 +3,7 @@ import os
 from SRSRTModel import SRSRTModel
 from Trainer import Trainer
 from Evaluator import Evaluator
+from LogValueObserver import LogValueObserver
 import Vimeo90K
 from SRSRTSettings import SRSRT_SETTINGS_DEFAULT
 
@@ -27,6 +28,10 @@ class SRSRT:
                 if len(sys.argv) == 4 and os.path.isfile(sys.argv[3]):
                     self.evaluate(sys.argv[2], sys.argv[3])
                     return
+            elif sys.argv[1] == "observe_log":
+                if len(sys.argv) == 4 and os.path.isfile(sys.argv[3]):
+                    self.observe_log(sys.argv[2], sys.argv[3])
+                    return
 
         print("Please provide correct command line arguments")
         sys.exit(0)
@@ -50,6 +55,11 @@ class SRSRT:
 
         evaluator = Evaluator(model, model_name, self.settings, evaluation_path)
         evaluator.eval()
+
+    def observe_log(self, tag, file_path):
+        value_observer = LogValueObserver()
+        value_observer.observe(tag, file_path)
+        value_observer.show_observations()
 
 if __name__ == "__main__":
     program = SRSRT()
