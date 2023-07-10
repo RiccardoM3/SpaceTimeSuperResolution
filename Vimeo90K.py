@@ -18,7 +18,7 @@ def create_dataset(settings, train_list_path):
 
 def save_downscaled_image(image_path, downscaled_image_path, scale):
     img = cv2.imread(image_path)
-    scaled_img = cv2.resize(img, None, fx=1./scale, fy=1./scale, interpolation=cv2.INTER_LANCZOS4)
+    scaled_img = cv2.resize(img, None, fx=1./scale, fy=1./scale, interpolation=cv2.INTER_AREA)
     cv2.imwrite(downscaled_image_path, scaled_img)
 
 def prepare_data(scale):
