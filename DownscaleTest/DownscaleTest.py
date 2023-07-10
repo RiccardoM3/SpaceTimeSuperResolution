@@ -2,6 +2,12 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
+def calculate_psnr(original, downsampled):
+    mse = np.mean((original - downsampled) ** 2)
+    max_pixel = np.max(original)
+    psnr = 20 * np.log10(max_pixel / np.sqrt(mse))
+    return psnr
+
 img = cv2.imread('./test4.png')
 img = img[:, :, [2, 1, 0]] # swap the channels of the image
 scale = 4
@@ -28,6 +34,9 @@ for i in range(len(interpolations)):
     scaled_img = np.repeat(np.repeat(scaled_img, scale, axis=0), scale, axis=1)
     axs[1+i//3][i%3].imshow(scaled_img)
     axs[1+i//3][i%3].axis('off')
-     
+    
+    psnr = calculate_psnr(img, scaled_img)
+    text = f'PSNR: {psnr:.2f}'
+    axs[1+i//3][i%3].text(scaled_img.shape[1]//2, scaled_img.shape[0]-10, text, ha='center', color='white', fontsize=8, bbox={'facecolor': 'black', 'alpha': 0.8, 'pad': 2})
 
 plt.show()
