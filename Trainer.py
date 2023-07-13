@@ -96,9 +96,6 @@ class Trainer:
         i_ratio = i/(num_input_frames-1)
         j_ratio = j/(num_input_frames-1)
 
-        print(i, j)
-        print(i_ratio, j_ratio)
-
         context = inputs
         input_frames = context[:, i:j+1, :, :, :]
         target_frames = targets[:, 2*i:2*j+1, :, :, :]
