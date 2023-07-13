@@ -129,8 +129,9 @@ class SRSRTModel(nn.Module):
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
 
 
+    # Note: the pos is supposed to give an idea about the position that the input frames y can be found in the context x
     def forward(self, x, y, pos, skip_encoder=False):
-        assert(pos[1] - pos[0] == 1) #ensure they are consecutive numbers
+        # assert(pos[1] - pos[0] == 1) #ensure they are consecutive numbers
 
         B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num input video frames. C num colour channels.
         D = 3
@@ -142,15 +143,14 @@ class SRSRTModel(nn.Module):
         QW = W//2**(len(self.encoder_layers)-1) # query W
 
         # Trilinear interpolation
-        x = x.permute(0, 2, 1, 3, 4)
-        upsample_x = F.interpolate(x, (OD, OH, OW), mode='trilinear', align_corners=False)
-        upsample_x = upsample_x.permute(0, 2, 1, 3, 4)
-        x = x.permute(0, 2, 1, 3, 4)
+        y = y.permute(0, 2, 1, 3, 4)
+        y_upsampled = F.interpolate(y, (D, OH, OW), mode='trilinear', align_corners=False)
+        y_upsampled = y_upsampled.permute(0, 2, 1, 3, 4)
+        y = y.permute(0, 2, 1, 3, 4)
 
         # Generate Queries for Decoder
-        # TODO: add pos or mask?
         y = y.reshape(B * 2, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
-        y = F.interpolate(y, scale_factor=1/2**(len(self.encoder_layers)-1), mode='bilinear', align_corners=False) # downscale the images to match the decoder query input size
+        y = F.interpolate(y, scale_factor=1/2**(len(self.encoder_layers)-1), mode='area') # downscale the images to match the decoder query input size
         y = y.reshape(B, 2, C, QH, QW) # Reshape the output tensor back to its original shape
         y = y.permute(0, 2, 1, 3, 4)
         y = F.interpolate(y, (D, QH, QW), mode='trilinear', align_corners=False) # trilinear interpolation to get the middle image
@@ -158,11 +158,14 @@ class SRSRTModel(nn.Module):
 
         y = self.feature_extraction(y) # get FC features
 
-        # this obtains the differences between the frames
+        # this obtains the differences between the frames, before adding a temporal encoding
+        position_1 = 1 + pos[0]
+        position_2 = 1 + (pos[0] + pos[1]) / 2
+        position_3 = 1 + pos[1]
         q = torch.zeros(B, D, FC, QH, QW, device=y.device)
-        q[:, 0, :, :, :] = y[:, 0, :, :, :] - (y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2
-        q[:, 1, :, :, :] = y[:, 1, :, :, :] - (y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2
-        q[:, 2, :, :, :] = y[:, 2, :, :, :] - (y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2
+        q[:, 0, :, :, :] = position_1 + y[:, 0, :, :, :] - (y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2
+        q[:, 1, :, :, :] = position_2 + y[:, 1, :, :, :] - (y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2
+        q[:, 2, :, :, :] = position_3 + y[:, 2, :, :, :] - (y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2
         y = q
 
         # Feature Extraction
@@ -191,7 +194,7 @@ class SRSRTModel(nn.Module):
         y = self.conv_last(y)
         y = y.view(B, D, C, OH, OW)
 
-        return y + upsample_x[:, 2*pos[0]:2*pos[1]+1, :, :, :]
+        return y + y_upsampled
 
 
     def debug_show_images(self, images):

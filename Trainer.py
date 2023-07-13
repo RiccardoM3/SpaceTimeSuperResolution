@@ -93,11 +93,16 @@ class Trainer:
         _, num_input_frames, _, _, _ = inputs.size()
         i = random.randint(0, num_input_frames-2)
         j=i+1
+        i_ratio = i/(num_input_frames-1)
+        j_ratio = j/(num_input_frames-1)
+
+        print(i, j)
+        print(i_ratio, j_ratio)
 
         context = inputs
         input_frames = context[:, i:j+1, :, :, :]
         target_frames = targets[:, 2*i:2*j+1, :, :, :]
-        output_frames = self.model(context, input_frames, (i, j))
+        output_frames = self.model(context, input_frames, (i_ratio, j_ratio))
 
         # display the first output of the batch
         # self.observe_sequence(input_frames[1], output_frames[1], target_frames[1])
