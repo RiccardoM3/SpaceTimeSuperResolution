@@ -136,7 +136,6 @@ class SRSRTModel(nn.Module):
         B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num input video frames. C num colour channels.
         D = 3
         FC = 64
-        OD = 2*N-1 # num output video frames
         OH = H*4 # output H
         OW = W*4 # output W
         QH = H//2**(len(self.encoder_layers)-1) # query H
@@ -159,13 +158,10 @@ class SRSRTModel(nn.Module):
         y = self.feature_extraction(y) # get FC features
 
         # this obtains the differences between the frames, before adding a temporal encoding
-        position_1 = 1 + pos[0]
-        position_2 = 1 + (pos[0] + pos[1]) / 2
-        position_3 = 1 + pos[1]
         q = torch.zeros(B, D, FC, QH, QW, device=y.device)
-        q[:, 0, :, :, :] = position_1 + y[:, 0, :, :, :] - (y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2
-        q[:, 1, :, :, :] = position_2 + y[:, 1, :, :, :] - (y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2
-        q[:, 2, :, :, :] = position_3 + y[:, 2, :, :, :] - (y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2
+        q[:, 0, :, :, :] = y[:, 0, :, :, :] - (y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2
+        q[:, 1, :, :, :] = y[:, 1, :, :, :] - (y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2
+        q[:, 2, :, :, :] = y[:, 2, :, :, :] - (y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2
         y = q
 
         # Feature Extraction
