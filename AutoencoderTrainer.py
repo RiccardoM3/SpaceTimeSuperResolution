@@ -8,15 +8,12 @@ import torch
 from Logger import Logger
 from Loss import CharbonnierLoss
 from LRScheduler import CosineAnnealingLR_Restart
-from Autoencoder import Autoencoder
 import Vimeo90K
 
-class Trainer:
-    def __init__(self, model, model_name, settings, train_list_path):
+class AutoencoderTrainer:
+    def __init__(self, model, settings, train_list_path):
         self.model = model
-        self.model_name = model_name
-        self.autoencoder = Autoencoder()
-        self.autoencoder.load_model("autoencoder")
+        self.model_name = "autoencoder"
         self.settings = settings
         self.train_list_path = train_list_path
         self.logger = Logger(self.model_name)
@@ -90,19 +87,16 @@ class Trainer:
 
     def train_one_sequence(self, train_data):
         inputs = train_data["LRs"].to('cuda')   #[5, 4, 3, 64, 96]
-        targets = train_data['HRs'].to('cuda')  #[5, 7, 3, 256, 384]
+        targets = train_data['LRs'].to('cuda')  #[5, 4, 3, 64, 96]
 
-        # pick a random timestamp for the 2 input frames
+        # pick a random timestamp for the 3 input frames
         _, num_input_frames, _, _, _ = inputs.size()
-        i = random.randint(0, num_input_frames-2)
-        j=i+1
-        i_ratio = i/(num_input_frames-1)
-        j_ratio = j/(num_input_frames-1)
-
-        context = self.autoencoder(inputs)
-        input_frames = context[:, i:j+1, :, :, :]
-        target_frames = targets[:, 2*i:2*j+1, :, :, :]
-        output_frames = self.model(context, input_frames, (i_ratio, j_ratio))
+        i = random.randint(0, num_input_frames-3)
+        j=i+2
+       
+        input_frames = inputs[:, i:j+1, :, :, :]
+        target_frames = targets[:, i:j+1, :, :, :]
+        output_frames = self.model(input_frames)
 
         # display the first output of the batch
         # self.observe_sequence(input_frames[1], output_frames[1], target_frames[1])
@@ -189,9 +183,6 @@ class Trainer:
 
         torch.save(training_state, training_state_path)
         self.logger.log("Save", "Saved training state")
-
-    def load_autoencoder(self):
-
 
 
         
