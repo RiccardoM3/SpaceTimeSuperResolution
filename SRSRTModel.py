@@ -133,7 +133,7 @@ class SRSRTModel(nn.Module):
     def forward(self, x, y, pos, skip_encoder=False):
         # assert(pos[1] - pos[0] == 1) #ensure they are consecutive numbers
 
-        B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num input video frames. C num colour channels.
+        B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num output video frames. C num colour channels.
         D = 3
         FC = 64
         OH = H*4 # output H
@@ -155,16 +155,15 @@ class SRSRTModel(nn.Module):
         y = F.interpolate(y, (D, QH, QW), mode='trilinear', align_corners=False) # trilinear interpolation to get the middle image
         y = y.permute(0, 2, 1, 3, 4)
 
-        y = self.feature_extraction(y) # get FC features
+        y = self.feature_extraction(y) # get FC features from the query
 
-        # this obtains the differences between the frames, before adding a temporal encoding
         q = torch.zeros(B, D, FC, QH, QW, device=y.device)
-        q[:, 0, :, :, :] = y[:, 0, :, :, :] - (y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2
-        q[:, 1, :, :, :] = y[:, 1, :, :, :] - (y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2
-        q[:, 2, :, :, :] = y[:, 2, :, :, :] - (y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2
+        # q[:, 0, :, :, :] = y[:, 0, :, :, :] - ((y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2)
+        q[:, 1, :, :, :] = y[:, 1, :, :, :] - ((y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2) # take the difference average of the interpolated part
+        # q[:, 2, :, :, :] = y[:, 2, :, :, :] - ((y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2)
         y = q
 
-        # Feature Extraction
+        # Encoder
         if not skip_encoder:
             x = self.feature_extraction(x)
 

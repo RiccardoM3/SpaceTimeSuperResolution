@@ -6,37 +6,24 @@ import Vimeo90K
 import torch
 from skimage.metrics import peak_signal_noise_ratio
 
-class Evaluator:
-    def __init__(self, model, model_name, settings, test_list_path, display_images):
+class EvaluatorSingle:
+    def __init__(self, model, model_name, settings, vimeo_path, image_path, num_input_images):
         self.model = model
         self.model_name = model_name
         self.settings = settings
-        self.test_list_path = test_list_path
-        self.display_images = display_images
+        self.vimeo_path = vimeo_path
+        self.image_path = image_path
+        self.num_input_images = num_input_images
 
-        self.stop_evaluating = False
-
-        self.test_set = Vimeo90K.create_dataset(self.settings, Vimeo90K.read_image_paths_from_file(self.test_list_path))
+        self.test_set = Vimeo90K.create_dataset(self.settings, [image_path])
         self.test_loader = Vimeo90K.create_dataloader(self.test_set, 1)
 
 
     def eval(self):
-        
-        def signal_handler():
-            print("Stopping evalation. Please wait...")
-            self.stop_evaluating = True
-            plt.close()
-
-        # run the signal handler on a new thread so the print statements dont conflict with ones which are already running while interrupted
-        signal.signal(signal.SIGINT, lambda _, __: threading.Timer(0.01, signal_handler).start())
-
         PSNRS = []
-        while not self.stop_evaluating:
-            for _, test_data in enumerate(self.test_loader):
-                PSNR = self.eval_one_sequence(test_data)
-                PSNRS.append(PSNR)
-            
-            self.stop_evaluating = True
+        for _, test_data in enumerate(self.test_loader):
+            PSNR = self.eval_one_sequence(test_data)
+            PSNRS.append(PSNR)
         
         total_avg_PSNR = sum(PSNRS)/len(PSNRS)
         print(f"Total Average PSNR: {total_avg_PSNR}")
@@ -69,18 +56,21 @@ class Evaluator:
             target_im = target_im.permute(1, 2, 0).cpu().detach().numpy()
             PSNRs.append(peak_signal_noise_ratio(target_im, output_im))
         avg_PSNR = sum(PSNRs)/len(PSNRs)
-        print(f"Current PSNR: {avg_PSNR}")
+
+        # restrict to the requested input size
+        input_sequence = input_sequence[:self.num_input_images, :, :, :]
+        output_sequence = output_sequence[:(2*self.num_input_images-1), :, :, :]
+        target_sequence = target_sequence[:(2*self.num_input_images-1), :, :, :]
 
         # display the first sequence of the batch
-        if self.display_images:
-            self.observe_sequence(input_sequence, output_sequence, target_sequence)
+        self.observe_sequence(input_sequence, output_sequence, target_sequence)
 
         return avg_PSNR
 
 
     def observe_sequence(self, input, output, target):
         num_outputs = output.size()[0]
-        fig, axs = plt.subplots(3, num_outputs, figsize=(18,6), sharex=True, sharey=True)
+        fig, axs = plt.subplots(3, num_outputs, sharex=True, sharey=True)
         fig.subplots_adjust(wspace=0, hspace=0)
         for i in range(num_outputs):
             

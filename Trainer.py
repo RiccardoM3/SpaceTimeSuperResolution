@@ -22,7 +22,7 @@ class Trainer:
         self.epoch = 0
         self.iter = 0
 
-        self.train_set = Vimeo90K.create_dataset(self.settings, self.train_list_path)
+        self.train_set = Vimeo90K.create_dataset(self.settings, Vimeo90K.read_image_paths_from_file(self.train_list_path))
         self.train_loader = Vimeo90K.create_dataloader(self.train_set, self.settings["batch_size"])
 
         self.loss_function = CharbonnierLoss().to('cuda')
