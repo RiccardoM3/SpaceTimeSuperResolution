@@ -1,7 +1,7 @@
 import cv2
 import time
 
-def crop_and_resize(frame):
+def crop(frame):
     # Get the height and width of the frame
     H, W, _ = frame.shape
 
@@ -18,8 +18,10 @@ def crop_and_resize(frame):
         start_y = (H - new_height) // 2
         cropped_frame = frame[start_y:start_y + new_height, :]
 
-    resized_frame = cv2.resize(cropped_frame, (384, 256))
-    return resized_frame
+    return cropped_frame
+
+def resize(frame, size):
+    return cv2.resize(frame, size, interpolation="INTER_AREA")
 
 # Open the video stream (you can replace 0 with your desired video file name)
 video_stream = cv2.VideoCapture(0)
@@ -28,12 +30,21 @@ video_stream = cv2.VideoCapture(0)
 prev_time = 0
 frame_count = 0
 
+context = []
+
 while True:
     ret, frame = video_stream.read()
     if not ret:
         break
 
-    cropped_frame = crop_and_resize(frame)
+    cropped_frame = crop(frame)
+    ground_truth = resize(cropped_frame, (384, 256))
+    model_input = resize(ground_truth, (384/4, 256/4))
+    
+    context.append(model_input)
+    if len(context) > 4:
+        context.pop(0)
+    
     cv2.imshow('Video', cropped_frame)
 
     # Calculate FPS

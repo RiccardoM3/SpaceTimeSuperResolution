@@ -26,6 +26,8 @@ Data preparation must be run before training or evaluation is run:
 
 ``python SRSRT.py display_one <model_name> <vimeo path> <sequence path> <optional: input sequence length>``
 
+``python SRSRT.py fps_test <model_name> <test_set_path>``
+
 ``python SRSRT.py observe_log <tag> <log_path>``
 
 ## Examples
@@ -36,5 +38,7 @@ Data preparation must be run before training or evaluation is run:
 ``python SRSRT.py display paper_model_final .\vimeo_septuplet\sep_testlist.txt``
 
 ``python SRSRT.py display_one paper_model_final .\vimeo_septuplet 00096/0674 2``
+
+``python SRSRT.py fps_test paper_model_final .\vimeo_septuplet\sep_testlist.txt``
 
 ``python SRSRT.py observe_log Loss .\logs\2023-08-05-10-33-11_paper_model_final.txt``
