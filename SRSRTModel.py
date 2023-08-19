@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import os
 import sys
 import matplotlib.pyplot as plt
+import numpy as np
 from Layers import (EncoderLayer, DecoderLayer, 
                      InputProj, Downsample, Upsample)
 
@@ -206,7 +207,10 @@ class SRSRTModel(nn.Module):
 
         if os.path.exists(f"{model_path}.pth"):
             self.load_state_dict(torch.load(f"{model_path}.pth"))
-            print("Loaded model")
+            print(f"Loaded model. Params: {self.num_params()}M")
+
+    
+
         else:
             print(f"{model_path}.pth doesn't exist.")
 
@@ -218,6 +222,11 @@ class SRSRTModel(nn.Module):
 
         torch.save(self.state_dict(), f"{model_path}.pth")
         print("Saved model")
+
+    def num_params(self):
+        model_parameters = filter(lambda p: p.requires_grad, self.parameters())
+        params = sum([np.prod(p.size()) for p in model_parameters])
+        return (1.0*params/(1000*1000))
 
     def named_parameters(self, prefix: str = '', recurse: bool = True):
         r"""Returns an iterator over module parameters, yielding both the
