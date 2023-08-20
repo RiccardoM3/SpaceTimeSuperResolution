@@ -23,7 +23,7 @@ class SRSRTModel(nn.Module):
         # Define options
         E = 4 # num of encoder frames
         C = 3 # num of channels
-        FC = 64 # num of feature channels
+        FC = 96 # num of feature channels
         D = 3 # num of decoder frames
         
         drop_rate=0.
@@ -136,7 +136,7 @@ class SRSRTModel(nn.Module):
 
         B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num output video frames. C num colour channels.
         D = 3
-        FC = 64
+        FC = 96
         OH = H*4 # output H
         OW = W*4 # output W
         QH = H//2**(len(self.encoder_layers)-1) # query H
