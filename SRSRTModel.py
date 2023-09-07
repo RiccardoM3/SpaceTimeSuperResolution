@@ -126,6 +126,10 @@ class SRSRTModel(nn.Module):
         self.HRconv = nn.Conv2d(64, 64, 3, 1, 1, bias=True)
         self.conv_last = nn.Conv2d(64, 3, 3, 1, 1, bias=True)
 
+        # Reconstruction Convolution
+        self.recon_conv1 = nn.Conv2d(3, 3, 3, 1, 1, bias=True)
+        self.recon_conv2 = nn.Conv2d(3, 3, 3, 1, 1, bias=True)
+
         # Activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
 
@@ -190,7 +194,16 @@ class SRSRTModel(nn.Module):
         y = self.conv_last(y)
         y = y.view(B, D, C, OH, OW)
 
-        return y + y_upsampled
+        # Join the residual with the upsampled data
+        y = y + y_upsampled
+
+        # Final reconstruction convolution
+        y = y.view(B*D, C, OH, OW)
+        y = self.lrelu(self.recon_conv1(y))
+        y = self.recon_conv2(y)
+        y = y.view(B, D, C, OH, OW)
+
+        return y
 
 
     def debug_show_images(self, images):
