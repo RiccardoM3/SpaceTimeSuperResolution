@@ -33,6 +33,8 @@ class EvaluatorFPS:
         last_time = time.time()
 
         while not self.stop_evaluating:
+            fps_total = 0;
+            fps_count = 0;
             for _, test_data in enumerate(self.test_loader):
                 
                 self.eval_one_sequence(test_data)
@@ -42,8 +44,13 @@ class EvaluatorFPS:
                 last_time = current_time
 
                 num_input_frames = test_data["LRs"].size(1)
-                print(f"FPS: {num_input_frames / time_taken}")
+                fps = num_input_frames / time_taken
+                print(f"FPS: {fps}")
 
+                fps_total += fps
+                fps_count += 1
+
+            print(f"Average FPS: {fps_total / fps_count}")
             
             self.stop_evaluating = True
 
