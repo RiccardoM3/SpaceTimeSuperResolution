@@ -5,8 +5,7 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-from Layers import (EncoderLayer, DecoderLayer, 
-                     InputProj, Downsample, Upsample)
+from Layers import (EncoderLayer, DecoderLayer, InputProj, Downsample, Upsample, PositionalEncoding)
 
 # define the model architecture
 class SRSRTModel(nn.Module):
@@ -77,6 +76,10 @@ class SRSRTModel(nn.Module):
         # Feature Extraction
         self.feature_extraction = InputProj(in_channels=C, embed_dim=FC, kernel_size=3, stride=1, act_layer=nn.LeakyReLU)
 
+        # Positional Encoding
+        self.positional_encoding_large = PositionalEncoding()
+        self.positional_encoding_small = PositionalEncoding()
+
         # Encoder
         self.encoder_layers = nn.ModuleList()
         self.downsample_layers = nn.ModuleList()
@@ -132,9 +135,7 @@ class SRSRTModel(nn.Module):
 
     # Note: the pos is supposed to give an idea about the position that the input frames y can be found in the context x
     def forward(self, x, y, pos, skip_encoder=False):
-        # assert(pos[1] - pos[0] == 1) #ensure they are consecutive numbers
-
-        B, N, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num output video frames. C num colour channels.
+        B, E, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num output video frames. C num colour channels.
         D = 3
         FC = 64
         OH = H*4 # output H
@@ -158,6 +159,8 @@ class SRSRTModel(nn.Module):
 
         y = self.feature_extraction(y) # get FC features from the query
 
+        y = self.positional_encoding_small(y, E, [2*pos[0], 2*pos[0]+1, 2*pos[1]]) # add the positional encoding
+
         q = torch.zeros(B, D, FC, QH, QW, device=y.device)
         # q[:, 0, :, :, :] = y[:, 0, :, :, :] - ((y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2)
         q[:, 1, :, :, :] = y[:, 1, :, :, :] - ((y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2) # take the difference average of the interpolated part
@@ -166,7 +169,11 @@ class SRSRTModel(nn.Module):
 
         # Encoder
         if not skip_encoder:
+            # Extract FC features
             x = self.feature_extraction(x)
+
+            # Add positional encoding to each feature
+            x = self.positional_encoding_large(x, E, [0,2,4,6])
 
             # Obtain encoder features
             self.encoder_features = []

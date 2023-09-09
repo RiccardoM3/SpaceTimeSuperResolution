@@ -749,3 +749,55 @@ class Upsample(nn.Module):
         x = x.view(-1, C, H, W) # B*D, C, H, W
         out = self.deconv(x).view(B, D, -1, H * 2, W * 2) # B, D, C, H, W
         return out
+
+class PositionalEncoding(nn.Module):
+    """
+        i are indices of C
+        position are indices of D
+
+        caches B, D, C, H, W size from the first time it is used. you can't use this same positional encoding layer for different sized inputs
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.position_matrix = None
+
+    def calc_position_matrix(self, B, D, C, H, W, device):
+        # precompute the position matrix
+        i = torch.arange(0, C, 2, device=device) # [0,2,4,6,...,C-2]
+        i = torch.repeat_interleave(i, repeats=2) # [0,0,2,2,4,4,6,6,...,...,C-2,C-2]
+        i = i.repeat(D * H * W).reshape(D, H, W, C) # size (D x H x W x C)
+        i = i.permute(0, 3, 1, 2) # size (D x C x H x W)
+
+        positions = torch.arange(D, device=device) #[0,1,2,...,D-1]
+        positions = positions.repeat(C * H * W).reshape(C, H, W, D) # size (C x H x W x D)
+        positions = positions.permute(3, 0, 1, 2) # size (D x C x H x W)
+
+        positional_encoding_sin = torch.sin(positions/(10000**(i/C)))
+        positional_encoding_cos = torch.cos(positions/(10000**(i/C)))
+
+        self.position_matrix = torch.zeros(D, C, H, W, device=device)
+        self.position_matrix[:, 0::2, :, :] = positional_encoding_sin[:, 0::2, :, :] # Include values from sin matrix for even i
+        self.position_matrix[:, 1::2, :, :] = positional_encoding_cos[:, 1::2, :, :] # Include values from cos matrix for odd i
+
+        self.position_matrix = self.position_matrix.unsqueeze(0).repeat(B, 1, 1, 1, 1) # size (B x D x C x H x W)
+
+    def forward(self, x, D, positions = [0]):
+        """
+        Args:
+            x (torch.Tensor): (B, D, C, H, W)
+            D (int): number of frames in context
+            positions (array): array of all the D indices that should be returned
+
+        Returns:
+            torch.Tensor: (B, D, C, H, W)
+        """
+
+        D = 2*D-1 # number of frames including intermediate frames
+
+        B, _, C, H, W = x.shape
+        
+        if self.position_matrix == None:
+            self.calc_position_matrix(B, D, C, H, W, x.device) # create the position matrix with full 2D-1 width
+        
+        return x + self.position_matrix[:, positions, :, :, :] # only grab the frames
