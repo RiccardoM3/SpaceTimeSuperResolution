@@ -760,7 +760,7 @@ class PositionalEncoding(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.position_matrix = None
+        self.position_matrices = {}
 
     def calc_position_matrix(self, B, D, C, H, W, device):
         # precompute the position matrix
@@ -776,11 +776,11 @@ class PositionalEncoding(nn.Module):
         positional_encoding_sin = torch.sin(positions/(10000**(i/C)))
         positional_encoding_cos = torch.cos(positions/(10000**(i/C)))
 
-        self.position_matrix = torch.zeros(D, C, H, W, device=device)
-        self.position_matrix[:, 0::2, :, :] = positional_encoding_sin[:, 0::2, :, :] # Include values from sin matrix for even i
-        self.position_matrix[:, 1::2, :, :] = positional_encoding_cos[:, 1::2, :, :] # Include values from cos matrix for odd i
+        position_matrix = torch.zeros(D, C, H, W, device=device)
+        position_matrix[:, 0::2, :, :] = positional_encoding_sin[:, 0::2, :, :] # Include values from sin matrix for even i
+        position_matrix[:, 1::2, :, :] = positional_encoding_cos[:, 1::2, :, :] # Include values from cos matrix for odd i
 
-        self.position_matrix = self.position_matrix.unsqueeze(0).repeat(B, 1, 1, 1, 1) # size (B x D x C x H x W)
+        return position_matrix.unsqueeze(0).repeat(B, 1, 1, 1, 1) # size (B x D x C x H x W)
 
     def forward(self, x, D, positions = [0]):
         """
@@ -797,7 +797,11 @@ class PositionalEncoding(nn.Module):
 
         B, _, C, H, W = x.shape
         
-        if self.position_matrix == None:
-            self.calc_position_matrix(B, D, C, H, W, x.device) # create the position matrix with full 2D-1 width
+        dims_key = f"{H}x{W}"
+
+        if dims_key not in self.position_matrices:
+            self.position_matrices[dims_key] = self.calc_position_matrix(B, D, C, H, W, x.device) # create the position matrix with full 2D-1 width
         
-        return x + self.position_matrix[:, positions, :, :, :] # only grab the frames
+        position_matrix = self.position_matrices[dims_key]
+
+        return x + position_matrix[:, positions, :, :, :] # only grab the frames

@@ -77,8 +77,7 @@ class SRSRTModel(nn.Module):
         self.feature_extraction = InputProj(in_channels=C, embed_dim=FC, kernel_size=3, stride=1, act_layer=nn.LeakyReLU)
 
         # Positional Encoding
-        self.positional_encoding_large = PositionalEncoding()
-        self.positional_encoding_small = PositionalEncoding()
+        self.positional_encoding = PositionalEncoding()
 
         # Encoder
         self.encoder_layers = nn.ModuleList()
@@ -150,22 +149,28 @@ class SRSRTModel(nn.Module):
         y = y.permute(0, 2, 1, 3, 4)
 
         # Generate Queries for Decoder
-        y = y.reshape(B * 2, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
-        y = F.interpolate(y, scale_factor=1/2**(len(self.encoder_layers)-1), mode='area') # downscale the images to match the decoder query input size
-        y = y.reshape(B, 2, C, QH, QW) # Reshape the output tensor back to its original shape
         y = y.permute(0, 2, 1, 3, 4)
-        y = F.interpolate(y, (D, QH, QW), mode='trilinear', align_corners=False) # trilinear interpolation to get the middle image
+        y = F.interpolate(y, (D, H, W), mode='trilinear', align_corners=False) # trilinear interpolation to get the middle image
         y = y.permute(0, 2, 1, 3, 4)
+        decoder_queries = []
+        for i in range(len(self.decoder_layers)):
+            current_H = int(H/2**(i))
+            current_W = int(W/2**(i))
+            
+            query = y.reshape(B * D, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
+            query = F.interpolate(query, scale_factor=1/2**(i), mode='area') # downscale the images to match the decoder query input size
+            query = query.reshape(B, D, C, current_H, current_W) # Reshape the output tensor back to its original shape
+       
+            query = self.feature_extraction(query) # get FC features from the query
+            
+            final_query = torch.zeros(B, D, FC, current_H, current_W, device=y.device)
+            # final_query[:, 0, :, :, :] = query[:, 0, :, :, :] - ((query[:, 1, :, :, :] + query[:, 2, :, :, :]) / 2)
+            final_query[:, 1, :, :, :] = query[:, 1, :, :, :] - ((query[:, 0, :, :, :] + query[:, 2, :, :, :]) / 2) # take the difference average of the interpolated part
+            # final_query[:, 2, :, :, :] = query[:, 2, :, :, :] - ((query[:, 0, :, :, :] + query[:, 1, :, :, :]) / 2)
+            
+            final_query = self.positional_encoding(final_query, E, [2*pos[0], 2*pos[0]+1, 2*pos[1]]) # add the positional encoding
 
-        y = self.feature_extraction(y) # get FC features from the query
-
-        y = self.positional_encoding_small(y, E, [2*pos[0], 2*pos[0]+1, 2*pos[1]]) # add the positional encoding
-
-        q = torch.zeros(B, D, FC, QH, QW, device=y.device)
-        # q[:, 0, :, :, :] = y[:, 0, :, :, :] - ((y[:, 1, :, :, :] + y[:, 2, :, :, :]) / 2)
-        q[:, 1, :, :, :] = y[:, 1, :, :, :] - ((y[:, 0, :, :, :] + y[:, 2, :, :, :]) / 2) # take the difference average of the interpolated part
-        # q[:, 2, :, :, :] = y[:, 2, :, :, :] - ((y[:, 0, :, :, :] + y[:, 1, :, :, :]) / 2)
-        y = q
+            decoder_queries.append(final_query) # save the query for later
 
         # Encoder
         if not skip_encoder:
@@ -173,7 +178,7 @@ class SRSRTModel(nn.Module):
             x = self.feature_extraction(x)
 
             # Add positional encoding to each feature
-            x = self.positional_encoding_large(x, E, [0,2,4,6])
+            x = self.positional_encoding(x, E, [0,2,4,6])
 
             # Obtain encoder features
             self.encoder_features = []
@@ -183,9 +188,10 @@ class SRSRTModel(nn.Module):
                 if i != len(self.encoder_layers) - 1:
                     x = self.downsample_layers[i](x)
 
-        # Get decoder output 
+        # Get decoder output
+        y = torch.zeros(B, D, FC, QH, QW, device=y.device)
         for i in range(len(self.decoder_layers)):
-            y = self.decoder_layers[i](y, self.encoder_features[-i - 1])
+            y = self.decoder_layers[i](y + decoder_queries[-i - 1], self.encoder_features[-i - 1])
             if i != len(self.decoder_layers) - 1:
                 y = self.upsample_layers[i](y)
 
