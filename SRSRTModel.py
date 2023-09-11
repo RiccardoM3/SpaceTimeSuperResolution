@@ -152,25 +152,20 @@ class SRSRTModel(nn.Module):
         y = y.permute(0, 2, 1, 3, 4)
         y = F.interpolate(y, (D, H, W), mode='trilinear', align_corners=False) # trilinear interpolation to get the middle image
         y = y.permute(0, 2, 1, 3, 4)
-        decoder_queries = []
-        for i in range(len(self.decoder_layers)):
-            current_H = int(H/2**(i))
-            current_W = int(W/2**(i))
-            
-            query = y.reshape(B * D, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
-            query = F.interpolate(query, scale_factor=1/2**(i), mode='area') # downscale the images to match the decoder query input size
-            query = query.reshape(B, D, C, current_H, current_W) # Reshape the output tensor back to its original shape
-       
-            query = self.feature_extraction(query) # get FC features from the query
-            
-            final_query = torch.zeros(B, D, FC, current_H, current_W, device=y.device)
-            # final_query[:, 0, :, :, :] = query[:, 0, :, :, :] - ((query[:, 1, :, :, :] + query[:, 2, :, :, :]) / 2)
-            final_query[:, 1, :, :, :] = query[:, 1, :, :, :] - ((query[:, 0, :, :, :] + query[:, 2, :, :, :]) / 2) # take the difference average of the interpolated part
-            # final_query[:, 2, :, :, :] = query[:, 2, :, :, :] - ((query[:, 0, :, :, :] + query[:, 1, :, :, :]) / 2)
-            
-            final_query = self.positional_encoding(final_query, E, [2*pos[0], 2*pos[0]+1, 2*pos[1]]) # add the positional encoding
 
-            decoder_queries.append(final_query) # save the query for later
+        query = y.reshape(B * D, C, H, W) # Reshape the input tensor to merge batches with the sequence of images
+        query = F.interpolate(query, scale_factor=1/2**(len(self.decoder_layers)-1), mode='area') # downscale the images to match the decoder query input size
+        query = query.reshape(B, D, C, QH, QW) # Reshape the output tensor back to its original shape
+    
+        query = self.feature_extraction(query) # get FC features from the query
+        
+        query = torch.zeros(B, D, FC, QH, QW, device=y.device)
+        # query[:, 0, :, :, :] = query[:, 0, :, :, :] - ((query[:, 1, :, :, :] + query[:, 2, :, :, :]) / 2)
+        query[:, 1, :, :, :] = query[:, 1, :, :, :] - ((query[:, 0, :, :, :] + query[:, 2, :, :, :]) / 2) # take the difference average of the interpolated part
+        # query[:, 2, :, :, :] = query[:, 2, :, :, :] - ((query[:, 0, :, :, :] + query[:, 1, :, :, :]) / 2)
+        
+        query = self.positional_encoding(query, E, [2*pos[0], 2*pos[0]+1, 2*pos[1]]) # add the positional encoding
+
 
         # Encoder
         if not skip_encoder:
@@ -189,9 +184,9 @@ class SRSRTModel(nn.Module):
                     x = self.downsample_layers[i](x)
 
         # Get decoder output
-        y = torch.zeros(B, D, FC, QH, QW, device=y.device)
+        y = query
         for i in range(len(self.decoder_layers)):
-            y = self.decoder_layers[i](y + decoder_queries[-i - 1], self.encoder_features[-i - 1])
+            y = self.decoder_layers[i](y, self.encoder_features[-i - 1])
             if i != len(self.decoder_layers) - 1:
                 y = self.upsample_layers[i](y)
 
