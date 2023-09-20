@@ -56,9 +56,9 @@ function createPeerConnection() {
     // connect audio / video
     pc.addEventListener('track', function(evt) {
         if (evt.track.kind == 'video')
-            document.getElementById('video').srcObject = evt.streams[0];
+            document.getElementById('remote-video').srcObject = evt.streams[0];
         else
-            document.getElementById('audio').srcObject = evt.streams[0];
+            document.getElementById('remote-audio').srcObject = evt.streams[0];
     });
 
     return pc;
@@ -177,13 +177,11 @@ function start() {
 
 
     if (constraints.audio || constraints.video) {
-        if (constraints.video) {
-            document.getElementById('media').style.display = 'block';
-        }
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             stream.getTracks().forEach(function(track) {
                 pc.addTrack(track, stream);
             });
+            document.getElementById('local-video').srcObject = stream;
             return negotiate();
         }, function(err) {
             alert('Could not acquire media: ' + err);
@@ -196,6 +194,7 @@ function start() {
 }
 
 function stop() {
+    document.getElementById('start').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
 
     // close data channel
