@@ -1,7 +1,7 @@
 var options = {
     video: {
-        resolution: "640x480", // ["", "320x240", "640x480", "960x540", "1280x720"]
-        transform: "none", // ["none", "edges", "cartoon", "rotate"]
+        resolution: "96x64", // ["", "320x240", "640x480", "960x540", "1280x720"]
+        transform: "superresolution", // ["none", "superresolution"]
         codec: "H264/90000" // ["default", "VP8/90000", "H264/90000"]
     },
     audio: {
@@ -179,7 +179,7 @@ function start() {
     if (constraints.audio || constraints.video) {
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             stream.getTracks().forEach(function(track) {
-                pc.addTrack(track, stream);
+                    pc.addTrack(track, stream);
             });
             document.getElementById('local-video').srcObject = stream;
             return negotiate();
