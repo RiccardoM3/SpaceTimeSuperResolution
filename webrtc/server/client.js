@@ -1,3 +1,19 @@
+var options = {
+    video: {
+        resolution: "640x480", // ["", "320x240", "640x480", "960x540", "1280x720"]
+        transform: "none", // ["none", "edges", "cartoon", "rotate"]
+        codec: "H264/90000" // ["default", "VP8/90000", "H264/90000"]
+    },
+    audio: {
+        codec: "default" // ["default", "opus/48000/2", "PCMU/8000", "PCMA/8000"]
+    },
+    datachannel: {
+        enabled: true,
+        settings: {"ordered": true} // ["", {"ordered": true}, {"ordered": false, "maxRetransmits": 0}, {"ordered": false, "maxPacketLifetime": 500}]
+    },
+    stun: "stun:stun.l.google.com:19302" // ["", "stun:stun.l.google.com:19302"]
+};
+
 // get DOM elements
 var dataChannelLog = document.getElementById('data-channel'),
     iceConnectionLog = document.getElementById('ice-connection-state'),
@@ -15,8 +31,8 @@ function createPeerConnection() {
         sdpSemantics: 'unified-plan'
     };
 
-    if (document.getElementById('use-stun').checked) {
-        config.iceServers = [{urls: ['stun:stun.l.google.com:19302']}];
+    if (options.stun) {
+        config.iceServers = [{urls: [options.stun]}];
     }
 
     pc = new RTCPeerConnection(config);
@@ -70,12 +86,12 @@ function negotiate() {
         var offer = pc.localDescription;
         var codec;
 
-        codec = document.getElementById('audio-codec').value;
+        codec = options.audio.codec;
         if (codec !== 'default') {
             offer.sdp = sdpFilterCodec('audio', codec, offer.sdp);
         }
 
-        codec = document.getElementById('video-codec').value;
+        codec = options.video.codec;
         if (codec !== 'default') {
             offer.sdp = sdpFilterCodec('video', codec, offer.sdp);
         }
@@ -85,7 +101,7 @@ function negotiate() {
             body: JSON.stringify({
                 sdp: offer.sdp,
                 type: offer.type,
-                video_transform: document.getElementById('video-transform').value
+                video_transform: options.video.transform
             }),
             headers: {
                 'Content-Type': 'application/json'
@@ -118,8 +134,8 @@ function start() {
         }
     }
 
-    if (document.getElementById('use-datachannel').checked) {
-        var parameters = JSON.parse(document.getElementById('datachannel-parameters').value);
+    if (options.datachannel.enabled) {
+        var parameters = options.datachannel.settings;
 
         dc = pc.createDataChannel('chat', parameters);
         dc.onclose = function() {
@@ -145,22 +161,20 @@ function start() {
     }
 
     var constraints = {
-        audio: document.getElementById('use-audio').checked,
-        video: false
+        audio: true,
+        video: true
     };
 
-    if (document.getElementById('use-video').checked) {
-        var resolution = document.getElementById('video-resolution').value;
-        if (resolution) {
-            resolution = resolution.split('x');
-            constraints.video = {
-                width: parseInt(resolution[0], 0),
-                height: parseInt(resolution[1], 0)
-            };
-        } else {
-            constraints.video = true;
-        }
+
+    var resolution = options.video.resolution;
+    if (resolution) {
+        resolution = resolution.split('x');
+        constraints.video = {
+            width: parseInt(resolution[0], 0),
+            height: parseInt(resolution[1], 0)
+        };
     }
+
 
     if (constraints.audio || constraints.video) {
         if (constraints.video) {

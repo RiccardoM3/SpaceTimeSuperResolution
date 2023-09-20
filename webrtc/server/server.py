@@ -9,7 +9,7 @@ import uuid
 import cv2
 from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
-from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
+from aiortc.contrib.media import MediaRelay
 from av import VideoFrame
 
 ROOT = os.path.dirname(__file__)
@@ -112,13 +112,6 @@ async def offer(request):
 
     log_info("Created for %s", request.remote)
 
-    # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    if args.record_to:
-        recorder = MediaRecorder(args.record_to)
-    else:
-        recorder = MediaBlackhole()
-
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
@@ -138,25 +131,20 @@ async def offer(request):
         log_info("Track %s received", track.kind)
 
         if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
+            pc.addTrack(track)
         elif track.kind == "video":
             pc.addTrack(
                 VideoTransformTrack(
                     relay.subscribe(track), transform=params["video_transform"]
                 )
             )
-            if args.record_to:
-                recorder.addTrack(relay.subscribe(track))
 
         @track.on("ended")
         async def on_ended():
             log_info("Track %s ended", track.kind)
-            await recorder.stop()
 
     # handle offer
     await pc.setRemoteDescription(offer)
-    await recorder.start()
 
     # send answer
     answer = await pc.createAnswer()

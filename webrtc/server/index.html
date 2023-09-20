@@ -2,111 +2,115 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebRTC demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <title>WebRTC Enhanced</title>
     <style>
-    button {
-        padding: 8px 16px;
-    }
+        pre {
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding: 0px 8px;
+            margin: 4px 0px;
+        }
 
-    pre {
-        overflow-x: hidden;
-        overflow-y: auto;
-    }
+        h4 {
+            background: #e0e0e0;
+            padding: 4px 8px;
+            text-align: center;
+            margin: 0;
+        }
 
-    video {
-        width: 100%;
-    }
+        h5 {
+            background: #ececec;
+            padding: 4px 8px;
+            margin: 0;
+        }
 
-    .option {
-        margin-bottom: 8px;
-    }
+        h6 {
+            background: #ececec;
+            padding: 4px 8px;
+            margin: 0;
+        }
 
-    #media {
-        max-width: 1280px;
-    }
+        p {
+            padding: 0px 8px;
+            margin: 4px 0px;
+        }
     </style>
 </head>
 <body>
+    <div class="row" style="height: 100vh; width: 100%; margin: 0;">
+        <div class="col-md-8 bg-dark px-3">
+            <div class="d-flex flex-column h-100 pb-3">
+                <div class="d-flex py-3 justify-content-center">
+                    <div id="media" style="width: 96; height: 64; background: white;" >
+                        <audio id="audio" class="w-100 h-100" autoplay="true"></audio>
+                        <video id="video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
+                    </div>
+                </div>
+    
+                <div class="flex-grow-1 p-4" style="background: rgb(23, 26, 29); border-radius: 24px;">
+                    <div class="d-flex flex-wrap justify-content-center">
+                        <div id="media2" style="width: 384; height: 256; margin: 16px; background: white;" >
+                            <audio id="audio" class="w-100 h-100" autoplay="true"></audio>
+                            <video id="video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
+                        </div>
+                        <!-- <div id="media2" style="width: 384; height: 256; margin: 16px; background: white;" >
+                            <audio id="audio" class="w-100 h-100" autoplay="true"></audio>
+                            <video id="video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
+                        </div>
+                        <div id="media2" style="width: 384; height: 256; margin: 16px; background: white;" >
+                            <audio id="audio" class="w-100 h-100" autoplay="true"></audio>
+                            <video id="video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
+                        </div>
+                        <div id="media2" style="width: 384; height: 256; margin: 16px; background: white;" >
+                            <audio id="audio" class="w-100 h-100" autoplay="true"></audio>
+                            <video id="video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
+                        </div> -->
+                    </div>
+                </div>
 
-<h2>Options</h2>
-<div class="option">
-    <input id="use-datachannel" checked="checked" type="checkbox"/>
-    <label for="use-datachannel">Use datachannel</label>
-    <select id="datachannel-parameters">
-        <option value='{"ordered": true}'>Ordered, reliable</option>
-        <option value='{"ordered": false, "maxRetransmits": 0}'>Unordered, no retransmissions</option>
-        <option value='{"ordered": false, "maxPacketLifetime": 500}'>Unordered, 500ms lifetime</option>
-    </select>
-</div>
-<div class="option">
-    <input id="use-audio" checked="checked" type="checkbox"/>
-    <label for="use-audio">Use audio</label>
-    <select id="audio-codec">
-        <option value="default" selected>Default codecs</option>
-        <option value="opus/48000/2">Opus</option>
-        <option value="PCMU/8000">PCMU</option>
-        <option value="PCMA/8000">PCMA</option>
-    </select>
-</div>
-<div class="option">
-    <input id="use-video" type="checkbox"/>
-    <label for="use-video">Use video</label>
-    <select id="video-resolution">
-        <option value="" selected>Default resolution</option>
-        <option value="320x240">320x240</option>
-        <option value="640x480">640x480</option>
-        <option value="960x540">960x540</option>
-        <option value="1280x720">1280x720</option>
-    </select>
-    <select id="video-transform">
-        <option value="none" selected>No transform</option>
-        <option value="edges">Edge detection</option>
-        <option value="cartoon">Cartoon effect</option>
-        <option value="rotate">Rotate</option>
-    </select>
-    <select id="video-codec">
-        <option value="default" selected>Default codecs</option>
-        <option value="VP8/90000">VP8</option>
-        <option value="H264/90000">H264</option>
-    </select>
-</div>
-<div class="option">
-    <input id="use-stun" type="checkbox"/>
-    <label for="use-stun">Use STUN server</label>
-</div>
+                <div class="w-100 text-center mt-3">
+                    <button class="btn btn-primary" id="start" onclick="start()">Start</button>
+                    <button class="btn btn-danger" id="stop" style="display: none" onclick="stop()">Stop</button>
+                </div>
+            </div>
 
-<button id="start" onclick="start()">Start</button>
-<button id="stop" style="display: none" onclick="stop()">Stop</button>
+        </div>
+        <div class="col-md-4 bg-light p-0">
+            
 
-<h2>State</h2>
-<p>
-    ICE gathering state: <span id="ice-gathering-state"></span>
-</p>
-<p>
-    ICE connection state: <span id="ice-connection-state"></span>
-</p>
-<p>
-    Signaling state: <span id="signaling-state"></span>
-</p>
+            
 
-<div id="media" style="display: none">
-    <h2>Media</h2>
 
-    <audio id="audio" autoplay="true"></audio>
-    <video id="video" autoplay="true" playsinline="true"></video>
-</div>
 
-<h2>Data channel</h2>
-<pre id="data-channel" style="height: 200px;"></pre>
+            <h4>Data Channel</h4>
+            <pre id="data-channel" style="height: 30vh;"></pre>
 
-<h2>SDP</h2>
+            <h4>Debugging</h4>
+            
+            <h5>State</h5>
+            <p>
+                ICE gathering state: <span id="ice-gathering-state"></span>
+            </p>
+            <p>
+                ICE connection state: <span id="ice-connection-state"></span>
+            </p>
+            <p>
+                Signaling state: <span id="signaling-state"></span>
+            </p>
 
-<h3>Offer</h3>
-<pre id="offer-sdp"></pre>
+            
 
-<h3>Answer</h3>
-<pre id="answer-sdp"></pre>
+            <h5>SDP</h5>
 
-<script src="client.js"></script>
+            <h6>Offer</h6>
+            <pre id="offer-sdp" style="height: 18vh;"></pre>
+
+            <h6>Answer</h6>
+            <pre id="answer-sdp" style="height: 18vh;"></pre>
+        </div>
+    </div>
+
+    <script src="client.js"></script>
 </body>
 </html>
