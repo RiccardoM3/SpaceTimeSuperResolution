@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import signal
-import threading
-import Vimeo90K
 import torch
+
+from model import Vimeo90K
+
 from skimage.metrics import peak_signal_noise_ratio
 
 class EvaluatorSingle:

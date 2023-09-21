@@ -3,10 +3,17 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import ssl
 import uuid
-
 import cv2
+
+# Add the project directory to path
+project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+print(project_dir)
+sys.path.append(project_dir)
+from model.SRSRTModel import SRSRTModel
+
 from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaRelay
@@ -18,6 +25,9 @@ logger = logging.getLogger("pc")
 pcs = set()
 relay = MediaRelay()
 
+host = "0.0.0.0"
+port = 9000
+model_path = "../../model/models/paper_model_final_pos_enc_tril_model.pth"
 
 class VideoTransformTrack(MediaStreamTrack):
     """
@@ -30,6 +40,8 @@ class VideoTransformTrack(MediaStreamTrack):
         super().__init__()  # don't forget this!
         self.track = track
         self.transform = transform
+        self.model = SRSRTModel().to('cuda')
+        self.model.load_model(model_path)
 
     async def recv(self):
         frame = await self.track.recv()
@@ -134,10 +146,10 @@ if __name__ == "__main__":
     parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
     parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
     parser.add_argument(
-        "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
+        "--host", default=host, help="Host for HTTP server (default: 0.0.0.0)"
     )
     parser.add_argument(
-        "--port", type=int, default=9000, help="Port for HTTP server (default: 8080)"
+        "--port", type=int, default=port, help="Port for HTTP server (default: 8080)"
     )
     parser.add_argument("--record-to", help="Write received media to a file."),
     parser.add_argument("--verbose", "-v", action="count")

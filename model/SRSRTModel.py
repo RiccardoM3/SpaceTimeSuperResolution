@@ -5,7 +5,8 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-from Layers import (EncoderLayer, DecoderLayer, InputProj, Downsample, Upsample, PositionalEncoding)
+
+from model.Layers import (EncoderLayer, DecoderLayer, InputProj, Downsample, Upsample, PositionalEncoding)
 
 # define the model architecture
 class SRSRTModel(nn.Module):
