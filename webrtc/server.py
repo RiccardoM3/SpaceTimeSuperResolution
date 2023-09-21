@@ -7,7 +7,7 @@ import sys
 import ssl
 import uuid
 import numpy as np
-
+import cv2
 
 # Add the project directory to path
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -51,11 +51,14 @@ class VideoTransformTrack(MediaStreamTrack):
         if self.transform == "superresolution":
             
             img = frame.to_ndarray(format="bgr24")
-            img = img / 255;
+            img = img / 255
 
             # TODO: use model
+            H, W, _ = img.shape # (64, 96, 3)
+            print(img.shape)
+            img = cv2.resize(img, (4 * W, 4 * H), interpolation=cv2.INTER_LINEAR)
 
-            img = (img * 255).astype(np.uint8);
+            img = (img * 255).astype(np.uint8)
 
             # rebuild a VideoFrame, preserving timing information
             new_frame = VideoFrame.from_ndarray(img, format="bgr24")

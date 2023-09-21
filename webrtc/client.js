@@ -179,7 +179,7 @@ function start() {
     if (constraints.audio || constraints.video) {
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             stream.getTracks().forEach(function(track) {
-                    pc.addTrack(track, stream);
+                pc.addTrack(track, stream);
             });
             document.getElementById('local-video').srcObject = stream;
             return negotiate();

@@ -5,6 +5,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <title>WebRTC Enhanced</title>
     <style>
+        video {
+            transform: scaleX(-1);
+        }
+        
         pre {
             overflow-x: hidden;
             overflow-y: auto;
@@ -43,8 +47,7 @@
             <div class="d-flex flex-column h-100 pb-3">
                 <div class="d-flex py-3 justify-content-center">
                     <div id="local-media" style="width: 96; height: 64; background: white;" >
-                        <audio id="local-audio" class="w-100 h-100" autoplay="true"></audio>
-                        <video id="local-video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
+                        <video id="local-video" class="w-100 h-100" autoplay="true" playsinline="true" muted></video>
                     </div>
                 </div>
     
@@ -78,11 +81,6 @@
         </div>
         <div class="col-md-4 bg-light p-0">
             
-
-            
-
-
-
             <h4>Data Channel</h4>
             <pre id="data-channel" style="height: 30vh;"></pre>
 
@@ -98,8 +96,6 @@
             <p>
                 Signaling state: <span id="signaling-state"></span>
             </p>
-
-            
 
             <h5>SDP</h5>
 
