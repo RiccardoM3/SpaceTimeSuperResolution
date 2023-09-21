@@ -11,7 +11,7 @@ var options = {
         enabled: true,
         settings: {"ordered": true} // ["", {"ordered": true}, {"ordered": false, "maxRetransmits": 0}, {"ordered": false, "maxPacketLifetime": 500}]
     },
-    stun: "stun:stun.l.google.com:19302" // ["", "stun:stun.l.google.com:19302"]
+    stun: "" // ["", "stun:stun.l.google.com:19302"]
 };
 
 // get DOM elements

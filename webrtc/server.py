@@ -55,7 +55,6 @@ class VideoTransformTrack(MediaStreamTrack):
 
             # TODO: use model
             H, W, _ = img.shape # (64, 96, 3)
-            print(img.shape)
             img = cv2.resize(img, (4 * W, 4 * H), interpolation=cv2.INTER_LINEAR)
 
             img = (img * 255).astype(np.uint8)
