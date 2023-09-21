@@ -6,7 +6,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-from model.Layers import (EncoderLayer, DecoderLayer, InputProj, Downsample, Upsample, PositionalEncoding)
+from Layers import (EncoderLayer, DecoderLayer, InputProj, Downsample, Upsample, PositionalEncoding)
 
 # define the model architecture
 class SRSRTModel(nn.Module):
@@ -217,16 +217,15 @@ class SRSRTModel(nn.Module):
         plt.show()
 
     def load_model(self, model_name):
-        model_path = f"models/{model_name}_model"
+        modules_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'models'))
+        model_path = f"{modules_path}/{model_name}_model.pth"
 
-        if os.path.exists(f"{model_path}.pth"):
-            self.load_state_dict(torch.load(f"{model_path}.pth"))
+        if os.path.exists(model_path):
+            self.load_state_dict(torch.load(model_path))
             print(f"Loaded model. Params: {self.num_params()}M")
 
-    
-
         else:
-            print(f"{model_path}.pth doesn't exist.")
+            print(f"{model_path} doesn't exist.")
 
     def save_model(self, model_name):
         if not os.path.exists("models"):

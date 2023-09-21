@@ -1,13 +1,13 @@
 import sys
 import os
-from model.SRSRTModel import SRSRTModel
-from model.Trainer import Trainer
-from model.Evaluator import Evaluator
-from model.EvaluatorSingle import EvaluatorSingle
-from model.EvaluatorFPS import EvaluatorFPS
-from model.LogValueObserver import LogValueObserver
-from model import Vimeo90K
-from model.SRSRTSettings import SRSRT_SETTINGS_DEFAULT
+from SRSRTModel import SRSRTModel
+from Trainer import Trainer
+from Evaluator import Evaluator
+from EvaluatorSingle import EvaluatorSingle
+from EvaluatorFPS import EvaluatorFPS
+from LogValueObserver import LogValueObserver
+import Vimeo90K
+from SRSRTSettings import SRSRT_SETTINGS_DEFAULT
 
 class SRSRT:
     def __init__(self):

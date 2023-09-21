@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 import signal
 import threading
 import torch
-from model.Logger import Logger
-from model.Loss import CharbonnierLoss
-from model.LRScheduler import CosineAnnealingLR_Restart
-from model import Vimeo90K
+from Logger import Logger
+from Loss import CharbonnierLoss
+from LRScheduler import CosineAnnealingLR_Restart
+import Vimeo90K
 
 class Trainer:
     def __init__(self, model, model_name, settings, train_list_path):

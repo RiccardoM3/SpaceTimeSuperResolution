@@ -2,8 +2,7 @@ import matplotlib.pyplot as plt
 import signal
 import threading
 import time
-
-from model import Vimeo90K
+import Vimeo90K
 
 from skimage.metrics import peak_signal_noise_ratio
 

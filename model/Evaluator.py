@@ -4,7 +4,7 @@ import signal
 import threading
 import torch
 
-from model import Vimeo90K
+import Vimeo90K
 from skimage.metrics import peak_signal_noise_ratio
 
 class Evaluator:
@@ -46,6 +46,8 @@ class Evaluator:
     def eval_one_sequence(self, test_data):
         inputs = test_data["LRs"].to('cuda')   #[1, 4, 3, 64, 96]
         targets = test_data['HRs'].to('cuda')  #[1, 7, 3, 256, 384]
+
+        print(inputs)
 
         input_sequence = inputs[0]
         output_sequence = torch.tensor([]).to('cuda')

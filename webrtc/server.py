@@ -6,12 +6,14 @@ import os
 import sys
 import ssl
 import uuid
-import cv2
+import numpy as np
+
 
 # Add the project directory to path
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-print(project_dir)
 sys.path.append(project_dir)
+module_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'model'))
+sys.path.append(module_dir)
 from model.SRSRTModel import SRSRTModel
 
 from aiohttp import web
@@ -27,7 +29,7 @@ relay = MediaRelay()
 
 host = "0.0.0.0"
 port = 9000
-model_path = "../../model/models/paper_model_final_pos_enc_tril_model.pth"
+model_name = "paper_model_final_pos_enc_tril"
 
 class VideoTransformTrack(MediaStreamTrack):
     """
@@ -41,7 +43,7 @@ class VideoTransformTrack(MediaStreamTrack):
         self.track = track
         self.transform = transform
         self.model = SRSRTModel().to('cuda')
-        self.model.load_model(model_path)
+        self.model.load_model(model_name)
 
     async def recv(self):
         frame = await self.track.recv()
@@ -49,9 +51,11 @@ class VideoTransformTrack(MediaStreamTrack):
         if self.transform == "superresolution":
             
             img = frame.to_ndarray(format="bgr24")
-           
-            # perform edge detection
-            img = cv2.cvtColor(cv2.Canny(img, 100, 200), cv2.COLOR_GRAY2BGR)
+            img = img / 255;
+
+            # TODO: use model
+
+            img = (img * 255).astype(np.uint8);
 
             # rebuild a VideoFrame, preserving timing information
             new_frame = VideoFrame.from_ndarray(img, format="bgr24")
