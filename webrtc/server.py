@@ -7,7 +7,7 @@ import sys
 import ssl
 import uuid
 import numpy as np
-import cv2
+import torch
 
 # Add the project directory to path
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -44,29 +44,66 @@ class VideoTransformTrack(MediaStreamTrack):
         self.transform = transform
         self.model = SRSRTModel().to('cuda')
         self.model.load_model(model_name)
+        self.in_frame_buffer = []
+        self.out_frame_buffer = []
+        self.start_processing_frames()
 
-    async def recv(self):
+    async def _background_process_frames(self):
+        while True:
+            await self.process_frames()
+
+    def start_processing_frames(self):
+        asyncio.create_task(self._background_process_frames())
+
+    async def process_frames(self):
         frame = await self.track.recv()
 
         if self.transform == "superresolution":
-            
-            img = frame.to_ndarray(format="bgr24")
-            img = img / 255
+            self.in_frame_buffer.append(frame)
 
-            # TODO: use model
-            H, W, _ = img.shape # (64, 96, 3)
-            img = cv2.resize(img, (4 * W, 4 * H), interpolation=cv2.INTER_LINEAR)
+            if len(self.in_frame_buffer) >= 4:
+                in_frames = self.in_frame_buffer[:4]
+                self.in_frame_buffer = self.in_frame_buffer[4:]
+                
+                context = np.stack([frame.to_ndarray(format="bgr24") for frame in in_frames], axis=0)
+                context = torch.tensor(context).to('cuda')
+                context = context.unsqueeze(0)
+                context = context.permute(0, 1, 4, 2, 3)
+                context = context / 255
 
-            img = (img * 255).astype(np.uint8)
+                for i in range(len(in_frames)-1):
+                    j = i+1
 
-            # rebuild a VideoFrame, preserving timing information
-            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-            new_frame.pts = frame.pts
-            new_frame.time_base = frame.time_base
-            return new_frame
+                    input_images = context[:, i:j+1, :, :, :]
+                    output_images = self.model(context, input_images, (i, j), skip_encoder=(i!=0))
+
+                    output_images = output_images.permute(0, 1, 3, 4, 2)
+                    output_image_1 = (output_images[0, 0] * 255).cpu().detach().numpy().astype(np.uint8)
+                    output_image_2 = (output_images[0, 1] * 255).cpu().detach().numpy().astype(np.uint8)
+                    output_frame_1 = VideoFrame.from_ndarray(output_image_1, format="bgr24")
+                    output_frame_2 = VideoFrame.from_ndarray(output_image_2, format="bgr24")
+
+                    # preserve timing information
+                    output_frame_1.pts = in_frames[i].pts
+                    output_frame_1.time_base = in_frames[i].time_base
+                    output_frame_2.pts = (in_frames[i].pts + in_frames[j].pts)/2
+                    output_frame_2.time_base = in_frames[j].time_base
+
+                    self.out_frame_buffer.append(output_frame_1)
+                    self.out_frame_buffer.append(output_frame_2)
+
+                    print(len(self.out_frame_buffer))
         else:
-            return frame
-       
+            self.out_frame_buffer.append(frame)
+
+    async def recv(self):
+        while len(self.out_frame_buffer) < 1:
+            await asyncio.sleep(0.1)
+            print('waiting')
+        print('done waiting')
+
+        return self.out_frame_buffer.pop(0)
+
 
 
 async def index(request):
