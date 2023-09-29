@@ -20,6 +20,7 @@ from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaRelay
 from av import VideoFrame
+from collections import deque
 
 ROOT = os.path.dirname(__file__)
 
@@ -44,7 +45,7 @@ class VideoTransformTrack(MediaStreamTrack):
         self.transform = transform
         self.model = SRSRTModel().to('cuda')
         self.model.load_model(model_name)
-        self.in_frame_buffer = []
+        self.in_frame_buffer = deque(maxlen=4)
         self.out_frame_buffer = []
         self.start_processing_frames()
 
@@ -62,10 +63,10 @@ class VideoTransformTrack(MediaStreamTrack):
             self.in_frame_buffer.append(frame)
 
             if len(self.in_frame_buffer) >= 4:
-                in_frames = self.in_frame_buffer[:4]
-                self.in_frame_buffer = self.in_frame_buffer[4:]
+                in_frames = list(self.in_frame_buffer)
+                self.in_frame_buffer.clear()
                 
-                context = np.stack([frame.to_ndarray(format="bgr24") for frame in in_frames], axis=0)
+                context = np.stack([frame.to_ndarray(format="rgb24") for frame in in_frames], axis=0)
                 context = torch.tensor(context).to('cuda')
                 context = context.unsqueeze(0)
                 context = context.permute(0, 1, 4, 2, 3)
@@ -78,10 +79,8 @@ class VideoTransformTrack(MediaStreamTrack):
                     output_images = self.model(context, input_images, (i, j), skip_encoder=(i!=0))
 
                     output_images = output_images.permute(0, 1, 3, 4, 2)
-                    output_image_1 = (output_images[0, 0] * 255).cpu().detach().numpy().astype(np.uint8)
-                    output_image_2 = (output_images[0, 1] * 255).cpu().detach().numpy().astype(np.uint8)
-                    output_frame_1 = VideoFrame.from_ndarray(output_image_1, format="bgr24")
-                    output_frame_2 = VideoFrame.from_ndarray(output_image_2, format="bgr24")
+                    output_frame_1 = VideoFrame.from_ndarray((output_images[0, 0] * 255).cpu().detach().numpy().astype(np.uint8), format="rgb24")
+                    output_frame_2 = VideoFrame.from_ndarray((output_images[0, 1] * 255).cpu().detach().numpy().astype(np.uint8), format="rgb24")
 
                     # preserve timing information
                     output_frame_1.pts = in_frames[i].pts
@@ -98,9 +97,7 @@ class VideoTransformTrack(MediaStreamTrack):
 
     async def recv(self):
         while len(self.out_frame_buffer) < 1:
-            await asyncio.sleep(0.1)
-            print('waiting')
-        print('done waiting')
+            await asyncio.sleep(0.01)
 
         return self.out_frame_buffer.pop(0)
 
