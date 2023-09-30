@@ -46,15 +46,15 @@ class VideoTransformTrack(MediaStreamTrack):
         self.model = SRSRTModel().to('cuda')
         self.model.load_model(model_name)
         self.in_frame_buffer = deque(maxlen=4)
-        self.out_frame_buffer = []
+        self.out_frame_buffer = deque(maxlen=32)
         self.start_processing_frames()
 
-    async def _background_process_frames(self):
+    async def background_process_frames(self):
         while True:
             await self.process_frames()
 
     def start_processing_frames(self):
-        asyncio.create_task(self._background_process_frames())
+        asyncio.create_task(self.background_process_frames())
 
     async def process_frames(self):
         frame = await self.track.recv()
@@ -66,7 +66,7 @@ class VideoTransformTrack(MediaStreamTrack):
                 in_frames = list(self.in_frame_buffer)
                 self.in_frame_buffer.clear()
                 
-                context = np.stack([frame.to_ndarray(format="rgb24") for frame in in_frames], axis=0)
+                context = np.stack([frame.to_ndarray(format="bgr24") for frame in in_frames], axis=0)
                 context = torch.tensor(context).to('cuda')
                 context = context.unsqueeze(0)
                 context = context.permute(0, 1, 4, 2, 3)
@@ -79,8 +79,8 @@ class VideoTransformTrack(MediaStreamTrack):
                     output_images = self.model(context, input_images, (i, j), skip_encoder=(i!=0))
 
                     output_images = output_images.permute(0, 1, 3, 4, 2)
-                    output_frame_1 = VideoFrame.from_ndarray((output_images[0, 0] * 255).cpu().detach().numpy().astype(np.uint8), format="rgb24")
-                    output_frame_2 = VideoFrame.from_ndarray((output_images[0, 1] * 255).cpu().detach().numpy().astype(np.uint8), format="rgb24")
+                    output_frame_1 = VideoFrame.from_ndarray((output_images[0, 0] * 255).cpu().detach().numpy().astype(np.uint8), format="bgr24")
+                    output_frame_2 = VideoFrame.from_ndarray((output_images[0, 1] * 255).cpu().detach().numpy().astype(np.uint8), format="bgr24")
 
                     # preserve timing information
                     output_frame_1.pts = in_frames[i].pts
@@ -99,7 +99,7 @@ class VideoTransformTrack(MediaStreamTrack):
         while len(self.out_frame_buffer) < 1:
             await asyncio.sleep(0.01)
 
-        return self.out_frame_buffer.pop(0)
+        return self.out_frame_buffer.popleft()
 
 
 
