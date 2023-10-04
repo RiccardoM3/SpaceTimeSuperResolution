@@ -1,6 +1,5 @@
 var options = {
     video: {
-        resolution: "96x64", // ["", "320x240", "640x480", "960x540", "1280x720"]
         transform: "superresolution", // ["none", "superresolution"]
         codec: "H264/90000", // ["default", "VP8/90000", "H264/90000"]
         fps: 10
@@ -55,11 +54,20 @@ function createPeerConnection() {
     signalingLog.textContent = pc.signalingState;
 
     // connect audio / video
-    pc.addEventListener('track', function(evt) {
-        if (evt.track.kind == 'video')
-            document.getElementById('remote-video').srcObject = evt.streams[0];
-        else
-            document.getElementById('remote-audio').srcObject = evt.streams[0];
+    pc.addEventListener('track', function(evt) {        
+        if (evt.track.kind == 'video') {
+            let id=`remote-video-${evt.track.id}`;
+            document.getElementById('media-container').innerHTML += 
+                `<div style="width: 384; height: 256; margin: 16px;" >` + 
+                    `<video id="${id}" class="w-100 h-100" autoplay="true" playsinline="true"></video>` +
+                `</div>`;
+            document.getElementById(id).srcObject = evt.streams[0];
+        } else {
+            let id=`remote-audio-${evt.track.id}`;
+            document.getElementById('media-container').innerHTML += 
+                `<audio id="${id}" class="w-100 h-100" autoplay="true"></audio>`;
+            document.getElementById(id).srcObject = evt.streams[0];
+        }
     });
 
     return pc;
@@ -167,14 +175,17 @@ function start() {
     };
 
 
-    var resolution = options.video.resolution;
-    if (resolution) {
+    var resolution = document.getElementById("resolution").value;
+    if (resolution != "") {
         resolution = resolution.split('x');
         constraints.video = {
             width: parseInt(resolution[0], 0),
             height: parseInt(resolution[1], 0),
             frameRate: {max: options.video.fps}
         };
+    } else {
+        constraints.audio = false
+        constraints.video = false
     }
 
 

@@ -7,6 +7,7 @@
     <style>
         video {
             transform: scaleX(-1);
+            background: black;
         }
         
         pre {
@@ -39,6 +40,11 @@
             padding: 0px 8px;
             margin: 4px 0px;
         }
+
+        select {
+            vertical-align: middle;
+        }
+
     </style>
 </head>
 <body>
@@ -52,30 +58,19 @@
                 </div>
     
                 <div class="flex-grow-1 p-4" style="background: rgb(23, 26, 29); border-radius: 24px;">
-                    <div class="d-flex flex-wrap justify-content-center">
-                        <div id="media" style="width: 384; height: 256; margin: 16px; background: white;" >
+                    <div class="d-flex flex-wrap justify-content-center" id="media-container">
+                        <!-- <div style="width: 384; height: 256; margin: 16px;" >
                             <audio id="remote-audio" class="w-100 h-100" autoplay="true"></audio>
                             <video id="remote-video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
-                        </div>
-                        <!-- <div id="media2" style="width: 384; height: 256; margin: 16px; background: white;" >
-                            <audio id="audio" class="w-100 h-100" autoplay="true"></audio>
-                            <video id="video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
-                        </div>
-                        <div id="media2" style="width: 384; height: 256; margin: 16px; background: white;" >
-                            <audio id="audio" class="w-100 h-100" autoplay="true"></audio>
-                            <video id="video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
-                        </div>
-                        <div id="media2" style="width: 384; height: 256; margin: 16px; background: white;" >
-                            <audio id="audio" class="w-100 h-100" autoplay="true"></audio>
-                            <video id="video" class="w-100 h-100" autoplay="true" playsinline="true"></video>
                         </div> -->
                     </div>
                 </div>
 
                 <div class="w-100 text-center mt-3">
-                    <button class="btn btn-primary" id="start" onclick="start()">Start</button>
-                    <button class="btn btn-danger" id="stop" style="display: none" onclick="stop()">Stop</button>
-                    <select class="form-select d-inline w-auto" id="resolution" style="transform: translateY(3px);">
+                    <button class="btn btn-success" id="start" onclick="start()">Join</button>
+                    <button class="btn btn-danger" id="stop" style="display: none" onclick="stop()">Leave</button>
+                    <select class="form-select w-auto d-inline" id="resolution">
+                        <option value="">Video Disabled</option>
                         <option value="96x64">384x256</option>
                         <option value="48x32">192x127</option>
                     </select>
@@ -86,7 +81,7 @@
         <div class="col-md-4 bg-light p-0">
             
             <h4>Data Channel</h4>
-            <pre id="data-channel" style="height: 30vh;"></pre>
+            <pre id="data-channel" style="height: 25vh;"></pre>
 
             <h4>Debugging</h4>
             
@@ -104,10 +99,10 @@
             <h5>SDP</h5>
 
             <h6>Offer</h6>
-            <pre id="offer-sdp" style="height: 18vh;"></pre>
+            <pre id="offer-sdp" style="height: 16vh;"></pre>
 
             <h6>Answer</h6>
-            <pre id="answer-sdp" style="height: 18vh;"></pre>
+            <pre id="answer-sdp" style="height: 16vh;"></pre>
         </div>
     </div>
 
