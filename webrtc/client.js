@@ -2,7 +2,8 @@ var options = {
     video: {
         resolution: "96x64", // ["", "320x240", "640x480", "960x540", "1280x720"]
         transform: "superresolution", // ["none", "superresolution"]
-        codec: "H264/90000" // ["default", "VP8/90000", "H264/90000"]
+        codec: "H264/90000", // ["default", "VP8/90000", "H264/90000"]
+        fps: 10
     },
     audio: {
         codec: "default" // ["default", "opus/48000/2", "PCMU/8000", "PCMA/8000"]
@@ -172,7 +173,7 @@ function start() {
         constraints.video = {
             width: parseInt(resolution[0], 0),
             height: parseInt(resolution[1], 0),
-            frameRate: {max: 10}
+            frameRate: {max: options.video.fps}
         };
     }
 

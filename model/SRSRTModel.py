@@ -81,6 +81,7 @@ class SRSRTModel(nn.Module):
         self.positional_encoding = PositionalEncoding()
 
         # Encoder
+        self.encoder_features = []
         self.encoder_layers = nn.ModuleList()
         self.downsample_layers = nn.ModuleList()
         for i in range(len(encoder_layer_settings)):
@@ -132,11 +133,29 @@ class SRSRTModel(nn.Module):
         # Activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
 
+    def calc_encoder(self, x):
+        B, E, C, H, W = x.size()  # [5 4 3 64 96] B batch size. E num encoder video frames. C num colour channels.
+
+        # Extract FC features
+        x = self.feature_extraction(x)
+
+        # Add positional encoding to each feature
+        positions = torch.tensor([[0,2,4,6]] * B)
+        x = self.positional_encoding(x, E, positions)
+
+        # Obtain encoder features
+        self.encoder_features = []
+        for i in range(len(self.encoder_layers)):
+            x = self.encoder_layers[i](x)
+            self.encoder_features.append(x)
+            if i != len(self.encoder_layers) - 1:
+                x = self.downsample_layers[i](x)
 
     # Note: the pos is supposed to give an idea about the position that the input frames y can be found in the context x
-    def forward(self, x, y, pos, skip_encoder=False):
-        B, E, C, H, W = x.size()  # [5 4 3 64 96] B batch size. D num output video frames. C num colour channels.
-        D = 3
+    def forward(self, y, positions):
+        B, _, C, H, W = y.size()  # [5 2 3 64 96] B batch size. . C num colour channels.
+        E = 4 # E num encoder frames
+        D = 3 # D num output video frames
         FC = 64
         OH = H*4 # output H
         OW = W*4 # output W
@@ -169,25 +188,18 @@ class SRSRTModel(nn.Module):
             final_query[:, 1, :, :, :] = query[:, 1, :, :, :] - ((query[:, 0, :, :, :] + query[:, 2, :, :, :]) / 2) # take the difference average of the interpolated part
             # final_query[:, 2, :, :, :] = query[:, 2, :, :, :] - ((query[:, 0, :, :, :] + query[:, 1, :, :, :]) / 2)
             
-            final_query = self.positional_encoding(final_query, E, [2*pos[0], 2*pos[0]+1, 2*pos[1]]) # add the positional encoding
+            positions_tensor = torch.zeros(B, D, dtype=torch.int64)
+            for i in range(len(positions)):
+                positions_tensor[i, 0] = 2*positions[i][0]
+                positions_tensor[i, 1] = 2*positions[i][0] + 1
+                positions_tensor[i, 2] = 2*positions[i][1]
+            final_query = self.positional_encoding(final_query, D, positions_tensor) # add the positional encoding
 
             decoder_queries.append(final_query) # save the query for later
 
         # Encoder
-        if not skip_encoder:
-            # Extract FC features
-            x = self.feature_extraction(x)
-
-            # Add positional encoding to each feature
-            x = self.positional_encoding(x, E, [0,2,4,6])
-
-            # Obtain encoder features
-            self.encoder_features = []
-            for i in range(len(self.encoder_layers)):
-                x = self.encoder_layers[i](x)
-                self.encoder_features.append(x)
-                if i != len(self.encoder_layers) - 1:
-                    x = self.downsample_layers[i](x)
+        # Pre-calculated in self.encoder_features
+        assert len(self.encoder_features) > 0
 
         # Get decoder output
         y = torch.zeros(B, D, FC, QH, QW, device=y.device)

@@ -5,6 +5,8 @@ models
 training_states
 logs
 node_modules
+cert.pem
+key.pem
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

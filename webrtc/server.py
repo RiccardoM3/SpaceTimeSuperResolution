@@ -8,6 +8,7 @@ import ssl
 import uuid
 import numpy as np
 import torch
+import cv2
 
 # Add the project directory to path
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -28,7 +29,7 @@ logger = logging.getLogger("pc")
 pcs = set()
 relay = MediaRelay()
 
-host = "0.0.0.0"
+host = "192.168.1.108"
 port = 9000
 model_name = "paper_model_final_pos_enc_tril"
 
@@ -47,53 +48,73 @@ class VideoTransformTrack(MediaStreamTrack):
         self.model.load_model(model_name)
         self.in_frame_buffer = deque(maxlen=4)
         self.out_frame_buffer = deque(maxlen=32)
+        self.start_receiving_frames()
         self.start_processing_frames()
+
+    async def background_receive_frames(self):
+        while True:
+            frame = await self.track.recv()
+            self.in_frame_buffer.append(frame)
+            print('appended')
 
     async def background_process_frames(self):
         while True:
-            await self.process_frames()
+            if self.transform == "superresolution":
+                while len(self.in_frame_buffer) < 4:
+                    await asyncio.sleep(0.01)
+
+                self.process_frames()
+            else:
+                while len(self.in_frame_buffer) < 1:
+                    await asyncio.sleep(0.01)
+
+                frame = self.in_frame_buffer.popleft()
+                self.out_frame_buffer.append(frame)
+
+    def start_receiving_frames(self):
+        asyncio.create_task(self.background_receive_frames())
 
     def start_processing_frames(self):
         asyncio.create_task(self.background_process_frames())
 
-    async def process_frames(self):
-        frame = await self.track.recv()
+    def process_frames(self):
+        # frame = self.in_frame_buffer.popleft()
+        # image = frame.to_ndarray(format="bgr24")
+        # upscaled_image = cv2.resize(image, None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
+        # new_frame = VideoFrame.from_ndarray(upscaled_image, format="bgr24")
+        # new_frame.pts = frame.pts
+        # new_frame.time_base = frame.time_base
+        # self.out_frame_buffer.append(new_frame)
+        # return
 
-        if self.transform == "superresolution":
-            self.in_frame_buffer.append(frame)
+        if len(self.in_frame_buffer) >= 4:
+            in_frames = list(self.in_frame_buffer)
+            self.in_frame_buffer.clear()
+            
+            context = np.stack([frame.to_ndarray(format="bgr24") for frame in in_frames], axis=0)
+            context = torch.tensor(context, dtype=torch.float32, device='cuda') / 255
+            context = context.permute(0, 3, 1, 2)
+            input_images = context.unfold(0, 2, 1).permute(0, 4, 1, 2, 3)
+            input_image_positions = torch.tensor([[0, 1], [1, 2], [2, 3]])
+            context = context.unsqueeze(0).repeat(3,1,1,1,1)
+            self.model.calc_encoder(context)
+            output_images = self.model(input_images, input_image_positions)
+            output_images = torch.clamp(output_images.permute(0, 1, 3, 4, 2) * 255, 0, 255).to(torch.uint8)
 
-            if len(self.in_frame_buffer) >= 4:
-                in_frames = list(self.in_frame_buffer)
-                self.in_frame_buffer.clear()
-                
-                context = np.stack([frame.to_ndarray(format="bgr24") for frame in in_frames], axis=0)
-                context = torch.tensor(context).to('cuda')
-                context = context.unsqueeze(0)
-                context = context.permute(0, 1, 4, 2, 3)
-                context = context / 255
+            for i in range(len(input_images)):
+                output_frame_1 = VideoFrame.from_ndarray((output_images[i, 0]).cpu().detach().numpy(), format="bgr24")
+                output_frame_2 = VideoFrame.from_ndarray((output_images[i, 1]).cpu().detach().numpy(), format="bgr24")
 
-                for i in range(len(in_frames)-1):
-                    j = i+1
+                # preserve timing information
+                output_frame_1.pts = in_frames[i].pts
+                output_frame_1.time_base = in_frames[i].time_base
+                output_frame_2.pts = (in_frames[i].pts + in_frames[i+1].pts)/2
+                output_frame_2.time_base = in_frames[i+1].time_base
 
-                    input_images = context[:, i:j+1, :, :, :]
-                    output_images = self.model(context, input_images, (i, j), skip_encoder=(i!=0))
+                self.out_frame_buffer.append(output_frame_1)
+                self.out_frame_buffer.append(output_frame_2)
 
-                    output_images = output_images.permute(0, 1, 3, 4, 2)
-                    output_frame_1 = VideoFrame.from_ndarray((output_images[0, 0] * 255).cpu().detach().numpy().astype(np.uint8), format="bgr24")
-                    output_frame_2 = VideoFrame.from_ndarray((output_images[0, 1] * 255).cpu().detach().numpy().astype(np.uint8), format="bgr24")
-
-                    # preserve timing information
-                    output_frame_1.pts = in_frames[i].pts
-                    output_frame_1.time_base = in_frames[i].time_base
-                    output_frame_2.pts = (in_frames[i].pts + in_frames[j].pts)/2
-                    output_frame_2.time_base = in_frames[j].time_base
-
-                    self.out_frame_buffer.append(output_frame_1)
-                    self.out_frame_buffer.append(output_frame_2)
-
-                    print(len(self.out_frame_buffer))
-        else:
-            self.out_frame_buffer.append(frame)
+                print(len(self.out_frame_buffer))
 
     async def recv(self):
         while len(self.out_frame_buffer) < 1:

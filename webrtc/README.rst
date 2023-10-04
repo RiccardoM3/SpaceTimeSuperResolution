@@ -43,6 +43,18 @@ If you want to enable verbose logging, run:
 
     $ python server.py -v
 
+To host the server via SSL, first create a certificate:
+
+.. code-block:: console
+
+    $ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365
+
+Then run the server with the certificate:
+
+.. code-block:: console
+
+    $ python ./server.py --cert-file cert.pem --key-file key.pem
+
 Credits
 -------
 

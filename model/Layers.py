@@ -762,7 +762,7 @@ class PositionalEncoding(nn.Module):
         super().__init__()
         self.position_matrices = {}
 
-    def calc_position_matrix(self, B, D, C, H, W, device):
+    def calc_position_matrix(self, D, C, H, W, device):
         # precompute the position matrix
         i = torch.arange(0, C, 2, device=device) # [0,2,4,6,...,C-2]
         i = torch.repeat_interleave(i, repeats=2) # [0,0,2,2,4,4,6,6,...,...,C-2,C-2]
@@ -780,9 +780,9 @@ class PositionalEncoding(nn.Module):
         position_matrix[:, 0::2, :, :] = positional_encoding_sin[:, 0::2, :, :] # Include values from sin matrix for even i
         position_matrix[:, 1::2, :, :] = positional_encoding_cos[:, 1::2, :, :] # Include values from cos matrix for odd i
 
-        return position_matrix.unsqueeze(0).repeat(B, 1, 1, 1, 1) # size (B x D x C x H x W)
+        return position_matrix # size (D x C x H x W)
 
-    def forward(self, x, D, positions = [0]):
+    def forward(self, x, D, positions):
         """
         Args:
             x (torch.Tensor): (B, D, C, H, W)
@@ -793,15 +793,17 @@ class PositionalEncoding(nn.Module):
             torch.Tensor: (B, D, C, H, W)
         """
 
-        D = 2*D-1 # number of frames including intermediate frames
+        O = 7 # number of frames including intermediate frames
 
         B, _, C, H, W = x.shape
         
         dims_key = f"{H}x{W}"
 
         if dims_key not in self.position_matrices:
-            self.position_matrices[dims_key] = self.calc_position_matrix(B, D, C, H, W, x.device) # create the position matrix with full 2D-1 width
+            self.position_matrices[dims_key] = self.calc_position_matrix(O, C, H, W, x.device) # create the position matrix with full 2D-1 width
         
         position_matrix = self.position_matrices[dims_key]
-
-        return x + position_matrix[:, positions, :, :, :] # only grab the frames
+        position_matrix = position_matrix[positions.view(B*D)]
+        
+        position_matrix = position_matrix.view(B, D, C, H, W)
+        return x + position_matrix
