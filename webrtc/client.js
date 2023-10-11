@@ -26,6 +26,9 @@ var pc = null;
 // data channel
 var dc = null, dcInterval = null;
 
+// video and audio streams
+var videoStream = null;
+
 function createPeerConnection() {
     var config = {
         sdpSemantics: 'unified-plan'
@@ -174,8 +177,8 @@ function start() {
         video: true
     };
 
-
-    var resolution = document.getElementById("resolution").value;
+    const resolutionSelector = document.getElementById("resolution")
+    let resolution = resolutionSelector.value;
     if (resolution != "") {
         resolution = resolution.split('x');
         constraints.video = {
@@ -188,9 +191,16 @@ function start() {
         constraints.video = false
     }
 
+    resolutionSelector.addEventListener('change', function() {
+        let resolution = resolutionSelector.value;
+        resolution = resolution.split('x');
+        changeResolution(resolution[0], resolution[1]);
+    })
 
     if (constraints.audio || constraints.video) {
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+            videoStream = stream;
+
             stream.getTracks().forEach(function(track) {
                 pc.addTrack(track, stream);
             });
@@ -207,6 +217,8 @@ function start() {
 }
 
 function stop() {
+    videoStream = null;
+    
     document.getElementById('start').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
 
@@ -290,6 +302,28 @@ function sdpFilterCodec(kind, codec, realSdp) {
     }
 
     return sdp;
+}
+
+function changeResolution(width, height) {
+    if (videoStream == null) {
+        return;
+    }
+    
+    const newConstraints = {
+        width: { ideal: width }, // Set your desired width
+        height: { ideal: height }   // Set your desired height
+    };
+
+    videoTrack = videoStream.getVideoTracks()[0];
+    videoTrack.applyConstraints(newConstraints)
+    .then(() => {
+      // The resolution has been updated
+      console.log('Resolution updated successfully');
+    })
+    .catch((error) => {
+      console.error('Error updating resolution:', error);
+    });
+
 }
 
 function escapeRegExp(string) {

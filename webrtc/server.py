@@ -77,6 +77,31 @@ class VideoTransformTrack(MediaStreamTrack):
     def start_processing_frames(self):
         asyncio.create_task(self.background_process_frames())
 
+    def get_input_frames(self):
+        in_frames = list(self.in_frame_buffer)
+        self.in_frame_buffer.clear()
+        
+        # if the resolution changed mid-stream, we could have frames with different resolutions in our buffer
+        # here, we change the resolution of all frames in the buffer to the lowest one so they match
+        first_resolution = (in_frames[0].width, in_frames[0].height) 
+        last_resolution = (in_frames[-1].width, in_frames[-1].height) 
+
+        resolution_changed = False
+        if first_resolution[0] != last_resolution[0]:
+            resolution_changed = True
+
+            for i in range(len(in_frames)):
+                current_frame = in_frames[i]
+                if current_frame.width != last_resolution[0]:
+                    current_image = current_frame.to_ndarray(format='bgr24')
+                    resized_image = cv2.resize(current_image, (last_resolution[0], last_resolution[1]))
+                    resized_frame = VideoFrame.from_ndarray(resized_image, format='bgr24')
+                    resized_frame.pts = current_frame.pts
+                    resized_frame.time_base = current_frame.time_base
+                    in_frames[i] = resized_frame
+
+        return in_frames, resolution_changed
+
     def process_frames(self):
         # frame = self.in_frame_buffer.popleft()
         # image = frame.to_ndarray(format="bgr24")
@@ -88,8 +113,7 @@ class VideoTransformTrack(MediaStreamTrack):
         # return
 
         if len(self.in_frame_buffer) >= 4:
-            in_frames = list(self.in_frame_buffer)
-            self.in_frame_buffer.clear()
+            in_frames, resolution_changed = self.get_input_frames()
             
             context = np.stack([frame.to_ndarray(format="bgr24") for frame in in_frames], axis=0)
             context = torch.tensor(context, dtype=torch.float32, device='cuda') / 255
@@ -97,6 +121,7 @@ class VideoTransformTrack(MediaStreamTrack):
             input_images = context.unfold(0, 2, 1).permute(0, 4, 1, 2, 3)
             input_image_positions = torch.tensor([[0, 1], [1, 2], [2, 3]])
             context = context.unsqueeze(0).repeat(3,1,1,1,1)
+            print(context.shape)
             self.model.calc_encoder(context)
             output_images = self.model(input_images, input_image_positions)
             output_images = torch.clamp(output_images.permute(0, 1, 3, 4, 2) * 255, 0, 255).to(torch.uint8)
