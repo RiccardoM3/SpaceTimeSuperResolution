@@ -69,8 +69,8 @@ class Trainer:
                 # update learning rate
                 self.update_learning_rate(current_iter, warmup_iter=self.settings["training"]["warmup_iter"])
 
-                self.logger.log("Iter", f"Epoch: {self.epoch} | Iter: {current_iter} | Loss: {loss.item()}")
-                self.logger.silent_log("Loss", loss.item())
+                self.logger.log("Iter", f"Epoch: {self.epoch} | Iter: {current_iter} | Loss: {loss}")
+                self.logger.silent_log("Loss", loss)
 
                 if current_iter != 0 and current_iter % self.settings["training_save_interval"] == 0:
                     self.model.save_model(self.model_name)
@@ -93,11 +93,12 @@ class Trainer:
         _, num_input_frames, _, _, _ = inputs.size()
         i = random.randint(0, num_input_frames-2)
         j=i+1
+        batch_size = len(inputs)
 
-        context = inputs
-        input_frames = context[:, i:j+1, :, :, :]
+        input_frames = inputs[:, i:j+1, :, :, :]
         target_frames = targets[:, 2*i:2*j+1, :, :, :]
-        output_frames = self.model(context, input_frames, (i, j))
+        self.model.calc_encoder(inputs)
+        output_frames = self.model(input_frames, [(i, j)] * batch_size)
 
         # display the first output of the batch
         # self.observe_sequence(input_frames[1], output_frames[1], target_frames[1])
@@ -110,7 +111,7 @@ class Trainer:
         self.optimiser.step() #update weights
 
         # return avg loss
-        return loss
+        return loss.item()
 
     def observe_sequence(self, input, output, target):
         num_outputs = output.size()[0]

@@ -47,23 +47,25 @@ class Evaluator:
         inputs = test_data["LRs"].to('cuda')   #[1, 4, 3, 64, 96]
         targets = test_data['HRs'].to('cuda')  #[1, 7, 3, 256, 384]
 
-        print(inputs)
-
+        batch_size = len(inputs)
         input_sequence = inputs[0]
         output_sequence = torch.tensor([]).to('cuda')
         target_sequence = targets[0]
 
+        self.model.calc_encoder(inputs)
         for i in range(len(input_sequence)-1):
             j = i+1
 
             input_frames = inputs[:, i:j+1, :, :, :]
-            output_frames = self.model(inputs, input_frames, (i, j), skip_encoder=(i!=0))
+            output_frames = self.model(input_frames, [(i, j)] * batch_size)
 
             #take the first 2 out of 3 outputs for all but the last frame pair. for the last, take all 3 outputs
             if j == len(input_sequence)-1:
                 output_sequence = torch.cat((output_sequence, output_frames[0]), dim=0)
             else:
                 output_sequence = torch.cat((output_sequence, output_frames[0, :2]), dim=0)
+
+            output_sequence = torch.clamp(output_sequence, 0, 1)
 
         # calc psnrs
         PSNRs = []

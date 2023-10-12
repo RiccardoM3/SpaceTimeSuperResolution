@@ -86,10 +86,7 @@ class VideoTransformTrack(MediaStreamTrack):
         first_resolution = (in_frames[0].width, in_frames[0].height) 
         last_resolution = (in_frames[-1].width, in_frames[-1].height) 
 
-        resolution_changed = False
         if first_resolution[0] != last_resolution[0]:
-            resolution_changed = True
-
             for i in range(len(in_frames)):
                 current_frame = in_frames[i]
                 if current_frame.width != last_resolution[0]:
@@ -100,7 +97,7 @@ class VideoTransformTrack(MediaStreamTrack):
                     resized_frame.time_base = current_frame.time_base
                     in_frames[i] = resized_frame
 
-        return in_frames, resolution_changed
+        return in_frames
 
     def process_frames(self):
         # frame = self.in_frame_buffer.popleft()
@@ -113,7 +110,7 @@ class VideoTransformTrack(MediaStreamTrack):
         # return
 
         if len(self.in_frame_buffer) >= 4:
-            in_frames, resolution_changed = self.get_input_frames()
+            in_frames = self.get_input_frames()
             
             context = np.stack([frame.to_ndarray(format="bgr24") for frame in in_frames], axis=0)
             context = torch.tensor(context, dtype=torch.float32, device='cuda') / 255
