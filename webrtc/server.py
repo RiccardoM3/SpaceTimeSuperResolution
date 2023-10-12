@@ -18,7 +18,7 @@ sys.path.append(module_dir)
 from model.SRSRTModel import SRSRTModel
 
 from aiohttp import web
-from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
+from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription, RTCConfiguration
 from aiortc.contrib.media import MediaRelay
 from av import VideoFrame
 from collections import deque
@@ -27,6 +27,8 @@ ROOT = os.path.dirname(__file__)
 
 logger = logging.getLogger("pc")
 pcs = set()
+audioTracks = set()
+videoTracks = set()
 relay = MediaRelay()
 
 host = "192.168.1.108"
@@ -175,9 +177,39 @@ async def offer(request):
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
-        def on_message(message):
+        async def on_message(message):
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
+            elif isinstance(message, str) and message.startswith("subscribe_to_videos"):
+                
+                print(audioTracks)
+                print(videoTracks)
+
+                # add existing audio tracks
+                for audioTrack in audioTracks:
+                    # if it hasnt already been added, add it
+                    if audioTrack.id not in [None if sender.track == None else sender.track.id for sender in pc.getSenders()]:
+                        print('adding existing audio track: ' + audioTrack.id)
+                        pc.addTrack(relay.subscribe(audioTrack))
+                    
+                # add existing video tracks
+                for videoTrack in videoTracks:
+                    # if it hasnt already been added, add it
+                    if videoTrack.id not in [None if sender.track == None else sender.track.id for sender in pc.getSenders()]:
+                        print('adding existing video track: ' + videoTrack.id)
+                        pc.addTrack(relay.subscribe(videoTrack))
+
+                offer = await pc.createOffer()
+                await pc.setLocalDescription(offer)
+                
+                channel.send("offer:" + json.dumps({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}))
+            elif isinstance(message, str) and message.startswith('answer:'):
+                message = json.loads(message[7:])
+
+                sdp = RTCSessionDescription(sdp=message['sdp'], type=message['type'])
+
+                await pc.setRemoteDescription(answer)
+
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
@@ -191,17 +223,18 @@ async def offer(request):
         log_info("Track %s received", track.kind)
 
         if track.kind == "audio":
-            pc.addTrack(track)
+            audioTracks.add(track)
+            # pc.addTrack(track)
+            # print('audio list')
         elif track.kind == "video":
-            pc.addTrack(
-                VideoTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"]
-                )
-            )
+            transformedTrack = VideoTransformTrack(relay.subscribe(track), transform=params["video_transform"])
+            videoTracks.add(transformedTrack)
+            # pc.addTrack(transformedTrack)
+            # print('video list')
 
         @track.on("ended")
         async def on_ended():
-            log_info("Track %s ended", track.kind)
+            log_info("Track %s ended", track.kind)    
 
     # handle offer
     await pc.setRemoteDescription(offer)
@@ -260,3 +293,10 @@ if __name__ == "__main__":
     web.run_app(
         app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
     )
+
+
+    # fixes bug in library
+    # for transceiver in pc.getTransceivers():
+    #     transceiver.direction = 'sendrecv'
+    #     transceiver._currentDirection = 'sendrecv'
+    #     transceiver._offerDirection = 'sendrecv'

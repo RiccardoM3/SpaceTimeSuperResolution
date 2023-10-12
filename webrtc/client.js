@@ -77,7 +77,7 @@ function createPeerConnection() {
 }
 
 function negotiate() {
-    return pc.createOffer().then(function(offer) {
+    return pc.createOffer({offerToReceiveAudio:true, offerToReceiveVideo:true}).then(function(offer) {
         return pc.setLocalDescription(offer);
     }).then(function() {
         // wait for ICE gathering to complete
@@ -161,6 +161,8 @@ function start() {
                 dataChannelLog.textContent += '> ' + message + '\n';
                 dc.send(message);
             }, 1000);
+
+            dc.send("subscribe_to_videos")
         };
         dc.onmessage = function(evt) {
             dataChannelLog.textContent += '< ' + evt.data + '\n';
@@ -168,6 +170,15 @@ function start() {
             if (evt.data.substring(0, 4) === 'pong') {
                 var elapsed_ms = current_stamp() - parseInt(evt.data.substring(5), 10);
                 dataChannelLog.textContent += ' RTT ' + elapsed_ms + ' ms\n';
+            } else if (evt.data.substring(0, 6) === 'offer:') {
+                const offer = JSON.parse(evt.data.substring(6))
+                console.log(offer)
+                pc.setRemoteDescription(offer)
+
+                answer = pc.createAnswer()
+                pc.setLocalDescription(answer)
+                
+                dc.send('answer:' + JSON.stringify({'sdp': pc.localDescription.sdp, 'type': pc.localDescription.type}))
             }
         };
     }
@@ -210,6 +221,27 @@ function start() {
             alert('Could not acquire media: ' + err);
         });
     } else {
+        // // create empty tracks 
+        // const stream1 = new MediaStream();
+        // const audioTrack1 = new MediaStreamTrack();
+        // audioTrack1.kind = 'audio'
+        // const videoTrack1 = new MediaStreamTrack();
+        // videoTrack1.kind = 'video'
+        // stream1.addTrack(audioTrack1);
+        // stream1.addTrack(videoTrack1);
+        // peerConnection.addTrack(audioTrack1, stream1);
+        // peerConnection.addTrack(videoTrack1, stream1);
+
+        // const stream2 = new MediaStream();
+        // const audioTrack2 = new MediaStreamTrack();
+        // audioTrack2.kind = 'audio'
+        // const videoTrack2 = new MediaStreamTrack();
+        // videoTrack2.kind = 'audio'
+        // stream2.addTrack(audioTrack2);
+        // stream2.addTrack(videoTrack2);
+        // peerConnection.addTrack(audioTrack2, stream2);
+        // peerConnection.addTrack(videoTrack2, stream2);
+
         negotiate();
     }
 
