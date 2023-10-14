@@ -91,7 +91,7 @@ class Trainer:
 
         # pick a random timestamp for the 2 input frames
         _, num_input_frames, _, _, _ = inputs.size()
-        i = random.randint(0, num_input_frames-2)
+        i = 2 # always operate on the last 2, non-compressed frames
         j=i+1
         batch_size = len(inputs)
 

@@ -21,7 +21,7 @@ class SRSRTModel(nn.Module):
         os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
         # Define options
-        E = 4 # num of encoder frames
+        E = 3 # num of encoder frames
         C = 3 # num of channels
         FC = 64 # num of feature channels
         D = 3 # num of decoder frames
@@ -73,6 +73,9 @@ class SRSRTModel(nn.Module):
         dec_dpr = enc_dpr[::-1]
 
         # Define Layers
+
+        # Compression Layer
+        self.compression_layer = nn.Conv3d(in_channels=2, out_channels=1, kernel_size=(C, 3, 3), stride=1, padding=1)
 
         # Feature Extraction
         self.feature_extraction = InputProj(in_channels=C, embed_dim=FC, kernel_size=3, stride=1, act_layer=nn.LeakyReLU)
@@ -136,11 +139,34 @@ class SRSRTModel(nn.Module):
     def calc_encoder(self, x):
         B, E, C, H, W = x.size()  # [5 4 3 64 96] B batch size. E num encoder video frames. C num colour channels.
 
+        # Compress timestamp 1 and 2 together
+        frames_1_to_2 = x[:, 0:2, :, :, :]
+        frames_3_onwards = x[:, 2:, :, :, :]
+        compressed_1_to_2 = self.compression_layer(frames_1_to_2)
+        x = torch.cat((compressed_1_to_2, frames_3_onwards), dim=1) 
+        B, E, C, H, W = x.size() # [5 3 3 64 96]
+
+        # uncomment to show compressed images
+        # frames = x[0, :, :, :, :]
+        # num_outputs = frames.size()[0]
+        # fig, axs = plt.subplots(3, 1, figsize=(12,8), sharex=True, sharey=True)
+        # fig.subplots_adjust(wspace=0, hspace=0)
+        # frame_1 = frames[0].permute(1, 2, 0).cpu().detach().clone().numpy()
+        # frame_2 = frames[1].permute(1, 2, 0).cpu().detach().clone().numpy()
+        # frame_3 = frames[2].permute(1, 2, 0).cpu().detach().clone().numpy()
+        # axs[0].imshow(frame_1)    
+        # axs[0].axis('off')
+        # axs[1].imshow(frame_2)
+        # axs[1].axis('off')
+        # axs[2].imshow(frame_3)
+        # axs[2].axis('off')
+        # plt.show()
+
         # Extract FC features
         x = self.feature_extraction(x)
 
         # Add positional encoding to each feature
-        positions = torch.tensor([[0,2,4,6]] * B)
+        positions = torch.tensor([[2,4,6]] * B)
         x = self.positional_encoding(x, E, positions)
 
         # Obtain encoder features
@@ -154,7 +180,7 @@ class SRSRTModel(nn.Module):
     # Note: the pos is supposed to give an idea about the position that the input frames y can be found in the context x
     def forward(self, y, positions):
         B, _, C, H, W = y.size()  # [5 2 3 64 96] B batch size. . C num colour channels.
-        E = 4 # E num encoder frames
+        E = 3 # E num encoder frames
         D = 3 # D num output video frames
         FC = 64
         OH = H*4 # output H

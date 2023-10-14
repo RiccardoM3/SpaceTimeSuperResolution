@@ -48,37 +48,32 @@ class Evaluator:
         targets = test_data['HRs'].to('cuda')  #[1, 7, 3, 256, 384]
 
         batch_size = len(inputs)
-        input_sequence = inputs[0]
-        output_sequence = torch.tensor([]).to('cuda')
-        target_sequence = targets[0]
 
+        i = 2 # always operate on the last 2, non-compressed frames
+        j=i+1
+
+        input_frames = inputs[:, i:j+1, :, :, :]
+        target_frames = targets[:, 2*i:2*j+1, :, :, :]
         self.model.calc_encoder(inputs)
-        for i in range(len(input_sequence)-1):
-            j = i+1
+        output_frames = self.model(input_frames, [(i, j)] * batch_size)
 
-            input_frames = inputs[:, i:j+1, :, :, :]
-            output_frames = self.model(input_frames, [(i, j)] * batch_size)
-
-            #take the first 2 out of 3 outputs for all but the last frame pair. for the last, take all 3 outputs
-            if j == len(input_sequence)-1:
-                output_sequence = torch.cat((output_sequence, output_frames[0]), dim=0)
-            else:
-                output_sequence = torch.cat((output_sequence, output_frames[0, :2]), dim=0)
-
-            output_sequence = torch.clamp(output_sequence, 0, 1)
+        input_frames = inputs[:, i:j+1, :, :, :]
+        output_frames = self.model(input_frames, [(i, j)] * batch_size)
+        output_frames = torch.clamp(output_frames, 0, 1)
 
         # calc psnrs
         PSNRs = []
-        for (output_im, target_im) in zip(output_sequence, target_sequence):
+        for (output_im, target_im) in zip(output_frames[0], target_frames[0]):
             output_im = output_im.permute(1, 2, 0).cpu().detach().numpy()
             target_im = target_im.permute(1, 2, 0).cpu().detach().numpy()
             PSNRs.append(peak_signal_noise_ratio(target_im, output_im))
         avg_PSNR = sum(PSNRs)/len(PSNRs)
         print(f"Current PSNR: {avg_PSNR}")
 
+        # Note: commented out since we only interpolate the last 2 images now. the display code needs to be rewritten
         # display the first sequence of the batch
-        if self.display_images:
-            self.observe_sequence(input_sequence, output_sequence, target_sequence)
+        # if self.display_images:
+        #     self.observe_sequence(input_sequence, output_sequence, target_sequence)
 
         return avg_PSNR
 

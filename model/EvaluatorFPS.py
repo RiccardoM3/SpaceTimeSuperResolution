@@ -4,8 +4,6 @@ import threading
 import time
 import Vimeo90K
 
-from skimage.metrics import peak_signal_noise_ratio
-
 class EvaluatorFPS:
     def __init__(self, model, model_name, settings, test_list_path):
         self.model = model
@@ -42,8 +40,9 @@ class EvaluatorFPS:
                 time_taken = current_time - last_time
                 last_time = current_time
 
-                num_input_frames = test_data["LRs"].size(1)
-                fps = num_input_frames / time_taken
+                # num_input_frames = test_data["LRs"].size(1)
+                num_output_frames = 2
+                fps = num_output_frames / time_taken
                 print(f"FPS: {fps}")
 
                 fps_total += fps
@@ -57,12 +56,11 @@ class EvaluatorFPS:
     def eval_one_sequence(self, test_data):
         inputs = test_data["LRs"].to('cuda')   #[1, 4, 3, 64, 96]
 
-        input_sequence = inputs[0]
+        i = 2 # always operate on the last 2, non-compressed frames
+        j = i+1
 
-        for i in range(len(input_sequence)-1):
-            j = i+1
-
-            input_frames = inputs[:, i:j+1, :, :, :]
-            output_frames = self.model(inputs, input_frames, (i, j), skip_encoder=(i!=0))
-            # the output_frames would then be shown directly to the screen
+        input_frames = inputs[:, i:j+1, :, :, :]
+        self.model.calc_encoder(inputs)
+        output_frames = self.model(input_frames, [(i, j)])
+        # the output_frames would then be shown directly to the screen
 
