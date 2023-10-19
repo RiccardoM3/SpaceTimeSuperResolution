@@ -5,7 +5,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <title>WebRTC Enhanced</title>
     <style>
-        video {
+        video, canvas {
             transform: scaleX(-1);
             background: black;
         }
@@ -53,7 +53,9 @@
             <div class="d-flex flex-column h-100 pb-3">
                 <div class="d-flex py-3 justify-content-center">
                     <div id="local-media" style="width: 384; height: 256; background: white;" >
-                        <video id="local-video" class="w-100 h-100" autoplay="true" playsinline="true" muted></video>
+                        <!-- video element can't be hidden with display: none, so it is removed from the document flow and transparent-->
+                        <video id="local-video" autoplay="true" playsinline="true" muted style="opacity: 0; position: absolute;"></video>
+                        <canvas id="local-video-canvas" class="w-100 h-100"></canvas>
                     </div>
                 </div>
     
@@ -72,7 +74,7 @@
                     <select class="form-select w-auto d-inline" id="resolution">
                         <option value="">Video Disabled</option>
                         <option value="96x64">384x256</option>
-                        <option value="48x32">192x127</option>
+                        <option value="48x32">192x128</option>
                     </select>
                 </div>
             </div>

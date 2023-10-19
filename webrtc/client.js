@@ -204,7 +204,26 @@ function start() {
             stream.getTracks().forEach(function(track) {
                 pc.addTrack(track, stream);
             });
-            document.getElementById('local-video').srcObject = stream;
+            
+            const videoElement = document.getElementById('local-video');
+            videoElement.srcObject = stream;
+        
+            const canvasElement = document.getElementById('local-video-canvas');
+            const canvasContext = canvasElement.getContext('2d');
+        
+            // Set the canvas resolution to quarter of the video resolution
+            canvasElement.width = resolution[0];
+            canvasElement.height = resolution[1];
+            fps = 50;
+
+            videoElement.addEventListener('loadeddata', function() {
+                // Draw the video frames onto the canvas
+                setInterval(function() {
+                    canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                }, 1000 / fps); // Adjust the frame rate as needed
+            });
+
+            
             return negotiate();
         }, function(err) {
             alert('Could not acquire media: ' + err);
@@ -324,6 +343,21 @@ function changeResolution(width, height) {
       console.error('Error updating resolution:', error);
     });
 
+    const videoElement = document.getElementById('local-video');
+    const canvasElement = document.getElementById('local-video-canvas');
+    const canvasContext = canvasElement.getContext('2d');
+        
+    // Set the canvas resolution to quarter of the video resolution
+    canvasElement.width = width;
+    canvasElement.height = height;
+    fps = 50;
+
+    videoElement.addEventListener('loadeddata', function() {
+        // Draw the video frames onto the canvas
+        setInterval(function() {
+            canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+        }, 1000 / fps); // Adjust the frame rate as needed
+    });
 }
 
 function escapeRegExp(string) {
