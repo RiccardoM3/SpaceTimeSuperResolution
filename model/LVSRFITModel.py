@@ -9,9 +9,9 @@ import numpy as np
 from Layers import (EncoderLayer, DecoderLayer, InputProj, Downsample, Upsample, PositionalEncoding)
 
 # define the model architecture
-class SRSRTModel(nn.Module):
+class LVSRFITModel(nn.Module):
     def __init__(self):
-        super(SRSRTModel, self).__init__()
+        super(LVSRFITModel, self).__init__()
 
         # CUDA
         if not torch.cuda.is_available():

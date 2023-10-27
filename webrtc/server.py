@@ -15,7 +15,7 @@ project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_dir)
 module_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'model'))
 sys.path.append(module_dir)
-from model.SRSRTModel import SRSRTModel
+from model.LVSRFITModel import LVSRFITModel
 
 from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
@@ -29,7 +29,7 @@ logger = logging.getLogger("pc")
 pcs = set()
 relay = MediaRelay()
 
-host = "192.168.1.108"
+host = "0.0.0.0"
 port = 9000
 model_name = "paper_model_final_pos_enc_tril"
 
@@ -44,7 +44,7 @@ class VideoTransformTrack(MediaStreamTrack):
         super().__init__()  # don't forget this!
         self.track = track
         self.transform = transform
-        self.model = SRSRTModel().to('cuda')
+        self.model = LVSRFITModel().to('cuda')
         self.model.load_model(model_name)
         self.in_frame_buffer = deque(maxlen=4)
         self.out_frame_buffer = deque(maxlen=32)

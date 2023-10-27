@@ -1,4 +1,4 @@
-SRSRT_SETTINGS_DEFAULT = {
+LVSRFIT_SETTINGS_DEFAULT = {
     "scale": 4,
     "num_frames": 7,
     "batch_size": 4,

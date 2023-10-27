@@ -1,17 +1,17 @@
 import sys
 import os
-from SRSRTModel import SRSRTModel
+from LVSRFITModel import LVSRFITModel
 from Trainer import Trainer
 from Evaluator import Evaluator
 from EvaluatorSingle import EvaluatorSingle
 from EvaluatorFPS import EvaluatorFPS
 from LogValueObserver import LogValueObserver
 import Vimeo90K
-from SRSRTSettings import SRSRT_SETTINGS_DEFAULT
+from LVSRFITSettings import LVSRFIT_SETTINGS_DEFAULT
 
-class SRSRT:
+class LVSRFIT:
     def __init__(self):
-        self.settings = SRSRT_SETTINGS_DEFAULT
+        self.settings = LVSRFIT_SETTINGS_DEFAULT
 
     def run(self):
         if len(sys.argv) > 1:
@@ -54,7 +54,7 @@ class SRSRT:
         Vimeo90K.prepare_data(self.settings["scale"])
 
     def train(self, model_name, training_path):
-        model = SRSRTModel().to('cuda')
+        model = LVSRFITModel().to('cuda')
         model.load_model(model_name)
 
         trainer = Trainer(model, model_name, self.settings, training_path)
@@ -64,35 +64,35 @@ class SRSRT:
         trainer.save_training_state()
         
     def evaluate(self, model_name, evaluation_path):
-        model = SRSRTModel().to('cuda')
+        model = LVSRFITModel().to('cuda')
         model.load_model(model_name)
 
         evaluator = Evaluator(model, model_name, self.settings, evaluation_path, False)
         evaluator.eval()
 
     def display(self, model_name, evaluation_path):
-        model = SRSRTModel().to('cuda')
+        model = LVSRFITModel().to('cuda')
         model.load_model(model_name)
 
         evaluator = Evaluator(model, model_name, self.settings, evaluation_path, True)
         evaluator.eval()
 
     def evaluate(self, model_name, evaluation_path):
-        model = SRSRTModel().to('cuda')
+        model = LVSRFITModel().to('cuda')
         model.load_model(model_name)
 
         evaluator = Evaluator(model, model_name, self.settings, evaluation_path, False)
         evaluator.eval()
 
     def display_one(self, model_name, evaluation_path, image_path, num_input_images):
-        model = SRSRTModel().to('cuda')
+        model = LVSRFITModel().to('cuda')
         model.load_model(model_name)
 
         evaluator = EvaluatorSingle(model, model_name, self.settings, evaluation_path, image_path, num_input_images)
         evaluator.eval()
 
     def fps_test(self, model_name, evaluation_path):
-        model = SRSRTModel().to('cuda')
+        model = LVSRFITModel().to('cuda')
         model.load_model(model_name)
 
         evaluator = EvaluatorFPS(model, model_name, self.settings, evaluation_path)
@@ -104,5 +104,5 @@ class SRSRT:
         value_observer.show_observations()
 
 if __name__ == "__main__":
-    program = SRSRT()
+    program = LVSRFIT()
     program.run()
