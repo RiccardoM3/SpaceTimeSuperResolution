@@ -2,9 +2,12 @@
 
 Note: Everything in this file is all relative to the `model` directory.
 
+Note: When specifying a `model name` in any of the below commands, enter `paper_model_final_pos_enc_tril` for the most up-to-date model
+
 ## Dataset Download
-First download the full 82GB vimeo septuplet 90K dataset from [here](http://toflow.csail.mit.edu/)
-Extract the contents of the zip and place into the root of this repository. The directory should be named `vimeo_septuplet`, and it should contain a `sequences` subdirectory. 
+First download the full 82GB vimeo septuplet 90K dataset from [http://toflow.csail.mit.edu/](http://toflow.csail.mit.edu/).
+
+Extract the contents of the zip and place into the `model` folder. The directory should be named `vimeo_septuplet`, and it should contain a `sequences` subdirectory. 
 
 ## Environment
 First install the required python packages
@@ -20,23 +23,23 @@ Data preparation must be run before training or evaluation is run:
 ## Commands
 Train the model:
 - Command: ``python LVSRFIT.py train <model_name> <training_set_path>`` 
-- Example: ``python LVSRFIT.py train paper_model_final .\vimeo_septuplet\sep_trainlist.txt`` 
+- Example: ``python LVSRFIT.py train paper_model_final_pos_enc_tril .\vimeo_septuplet\sep_trainlist.txt`` 
 
 Evaluate the model's accuracy:
 - Command: ``python LVSRFIT.py eval <model_name> <evaluation_set_path>``
-- Example: ``python LVSRFIT.py eval paper_model_final .\vimeo_septuplet\sep_testlist.txt``
+- Example: ``python LVSRFIT.py eval paper_model_final_pos_enc_tril .\vimeo_septuplet\sep_testlist.txt``
 
 Continuously display inference outputs:
 - Command: ``python LVSRFIT.py display <model_name> <evaluation_set_path>``
-- Example: ``python LVSRFIT.py display paper_model_final .\vimeo_septuplet\sep_testlist.txt``
+- Example: ``python LVSRFIT.py display paper_model_final_pos_enc_tril .\vimeo_septuplet\sep_testlist.txt``
 
 Display inference outputs for a specified Vimeo file:
 - Command: ``python LVSRFIT.py display_one <model_name> <vimeo path> <sequence path> <optional: input sequence length>``
-- Example: ``python LVSRFIT.py display_one paper_model_final .\vimeo_septuplet 00096/0674 2``
+- Example: ``python LVSRFIT.py display_one paper_model_final_pos_enc_tril .\vimeo_septuplet 00096/0674 2``
 
 Calculate the number of FPS the model can run at
 - Command: ``python LVSRFIT.py fps_test <model_name> <test_set_path>``
-- Example: ``python LVSRFIT.py fps_test paper_model_final .\vimeo_septuplet\sep_testlist.txt``
+- Example: ``python LVSRFIT.py fps_test paper_model_final_pos_enc_tril .\vimeo_septuplet\sep_testlist.txt``
 
 View a plot of all the Loss values in a log file
 - Command: ``python LVSRFIT.py observe_log <tag> <log_path>``
