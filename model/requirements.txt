@@ -5,3 +5,4 @@ opencv_python==4.5.3.56
 scikit_image==0.18.3
 tensorboardX==2.5
 timm==0.4.12
+pandas==2.0.3
