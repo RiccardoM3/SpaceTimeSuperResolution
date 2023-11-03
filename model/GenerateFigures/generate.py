@@ -4,6 +4,10 @@ from matplotlib import pyplot as plt
 import torch.nn.functional as F
 import numpy as np
 
+import sys
+sys.path.append("..")  # Add parent directory to Python path
+from LVSRFITModel import LVSRFITModel
+
 save_path = '../../../images'
 
 ###########################################
@@ -146,32 +150,48 @@ plt.savefig(save_path + '/psnr_vs_fps.png')
 ###########################################
 # Results
 ###########################################
-# image_path = "../vimeo_septuplet/sequences_scale_4/00011/0001"
-# image1 = cv2.imread(image_path + "/im1.png")
-# image2 = cv2.imread(image_path + "/im2.png")
-# image3 = cv2.imread(image_path + "/im3.png")
-# image4 = cv2.imread(image_path + "/im4.png")
-# image5 = cv2.imread(image_path + "/im5.png")
-# image6 = cv2.imread(image_path + "/im6.png")
-# image7 = cv2.imread(image_path + "/im7.png")
+image_path = "result_images"
+image1 = cv2.imread(image_path + "/im1.png", cv2.IMREAD_UNCHANGED).astype(np.float32) / 255
+image2 = cv2.imread(image_path + "/im3.png", cv2.IMREAD_UNCHANGED).astype(np.float32) / 255
+image3 = cv2.imread(image_path + "/im5.png", cv2.IMREAD_UNCHANGED).astype(np.float32) / 255
+image4 = cv2.imread(image_path + "/im7.png", cv2.IMREAD_UNCHANGED).astype(np.float32) / 255
+image1 = cv2.resize(image1, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+image2 = cv2.resize(image2, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+image3 = cv2.resize(image3, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+image4 = cv2.resize(image4, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+frames_list = [image1, image2, image3, image4]
 
-# fig, axs = plt.subplots(3, 7, sharex=True, sharey=True)
-# fig.subplots_adjust(wspace=0, hspace=0)
+# Stack LR images to NHWC, N is the frame number
+frame_LRs = np.stack(frames_list, axis=0)
 
-# for i in range(num_outputs):
-    
-#     current_output = output[i].permute(1, 2, 0).cpu().detach().clone().numpy()
-#     current_target = target[i].permute(1, 2, 0).cpu().clone().numpy()
+# BGR to RGB, HWC to CHW, numpy to tensor
+frame_LRs = frame_LRs[:, :, :, [2, 1, 0]]
+frame_LRs = torch.from_numpy(np.ascontiguousarray(np.transpose(frame_LRs, (0, 3, 1, 2)))).float().unsqueeze(0)
 
-#     if i % 2 == 0:
-#         current_input = input[i//2].permute(1, 2, 0).cpu().numpy()
-#         current_input = np.repeat(np.repeat(current_input, self.settings["scale"], axis=0), self.settings["scale"], axis=1)
-#         axs[0][i].imshow(current_input)
-        
-#     axs[0][i].axis('off')
-#     axs[1][i].imshow(current_output)
-#     axs[1][i].axis('off')
-#     axs[2][i].imshow(current_target)
-#     axs[2][i].axis('off')
+inputs = frame_LRs.to('cuda')   #[1, 4, 3, 64, 96]
+output_sequence = torch.tensor([]).to('cuda')
+batch_size = len(inputs)
 
-# plt.show()
+model = LVSRFITModel().to('cuda')
+model.load_model('paper_model_final_pos_enc_tril')
+
+model.calc_encoder(inputs)
+for i in range(inputs.shape[1]-1):
+    j = i+1
+
+    input_frames = inputs[:, i:j+1, :, :, :]
+    output_frames = model(input_frames, [(i, j)] * batch_size)
+
+    #take the first 2 out of 3 outputs for all but the last frame pair. for the last, take all 3 outputs
+    if j == inputs.shape[1]-1:
+        output_sequence = torch.cat((output_sequence, output_frames[0]), dim=0)
+    else:
+        output_sequence = torch.cat((output_sequence, output_frames[0, :2]), dim=0)
+
+output_sequence = torch.clamp(output_sequence.permute(0, 2, 3, 1) * 255, 0, 255).to(torch.uint8)
+output_sequence = output_sequence.cpu().detach().numpy()
+
+# save the target output image
+target_image = output_sequence[3]
+target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
+cv2.imwrite(save_path + "/result_img.png", target_image)
